@@ -1,6 +1,6 @@
 """..."""
 
-from mimoBody.constants import MEASUREMENT_TYPES, RATIOS_MIMO_BODIES, RATIOS_DERIVED
+from mimoBody.constants import MEASUREMENT_TYPES, RATIOS_MIMO_BODIES, RATIOS_DERIVED, MOTOR_MAPPING
 import numpy as np
 
 
@@ -242,3 +242,28 @@ def create_body_vectors(geoms: dict) -> dict:
     }
 
     return vectors
+
+
+# todo: cleanup + comment
+def compute_gear_values(geoms: dict, model) -> dict:
+    """..."""
+
+    values = {}
+    for geom, motors in MOTOR_MAPPING.items():
+
+        size = geoms[geom]["size"]
+        size_og = model.geom_size[model.geom(geom).id]
+
+        if geom in ["geom:right_hand1"]:  # box
+            csa = size[0] * size[1]  # todo: check which sizes to use
+            csa_og = size_og[0] * size_og[1]  # todo: check which sizes to use
+        else:  # sphere/capsule
+            csa = np.pi * size[0] ** 2
+            csa_og = np.pi * size_og[0] ** 2
+
+        for motor in motors:
+            gear_og = model.actuator_gear[model.actuator(motor).id]
+            ratio = gear_og / csa_og
+            values[motor] = csa * ratio
+
+    return values

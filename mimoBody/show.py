@@ -1,6 +1,6 @@
 """..."""
 
-from mimoBody.body import get_body_params, adjust_body
+from mimoBody.body import adjust_body
 
 import time
 import os
@@ -27,8 +27,8 @@ def growing():
     model = mujoco.MjModel.from_xml_path("mimoEnv/assets/physical_growth.xml")
     data = mujoco.MjData(model)
 
-    # age_months = 1
-    # adjust_body(get_body_params(age_months), model)
+    age_months = 1
+    adjust_body(age_months, model)
 
     with mujoco.viewer.launch_passive(model, data, key_callback=key_callback) as viewer:
         while viewer.is_running():
@@ -50,7 +50,7 @@ def growing():
 
             if state["reset"]:
                 age_months = 1
-                adjust_body(get_body_params(age_months), model)
+                adjust_body(age_months, model)
                 state["reset"], state["paused"] = False, True
                 continue
 
@@ -58,7 +58,7 @@ def growing():
                 continue
 
             age_months = np.round(age_months + 0.1, 1)
-            adjust_body(get_body_params(age_months), model)
+            adjust_body(age_months, model)
 
 
 def multiple_mimos():
@@ -75,7 +75,7 @@ def multiple_mimos():
     for i, age in enumerate(AGES):
 
         model = mujoco.MjModel.from_xml_path(PATH_SCENE)
-        adjust_body(get_body_params(age), model)
+        adjust_body(age, model)
 
         path_model = f"mimoEnv/assets/mimo/MIMo_model_{i}.xml"
         mujoco.mj_saveLastXML(path_model, model)

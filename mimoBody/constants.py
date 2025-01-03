@@ -182,3 +182,18 @@ GEOM_MAPPING = {
         ("geom:left_toes2", "geom:right_toes2"),
     ]
 }
+
+# ...
+# note about only right
+# todo: check body parts that are made of multiple elements
+MOTOR_MAPPING = {
+    "cb": ["act:hip_bend", "act:hip_twist", "act:hip_lean"],
+    "head": ["act:head_swivel", "act:head_tilt", "act:head_tilt_side"],
+    "geom:right_eye1": ["act:right_eye_horizontal", "act:right_eye_vertical", "act:right_eye_torsional"],
+    "right_uarm1": ["act:right_shoulder_horizontal", "act:right_shoulder_abduction", "act:right_shoulder_internal"],
+    "right_larm": ["act:right_elbow"],
+    "geom:right_hand1": ["act:right_wrist_rotation", "act:right_wrist_flexion", "act:right_wrist_ulnar", "act:right_fingers"],
+    "geom:right_upper_leg1": ["act:right_hip_flex", "act:right_hip_abduction", "act:right_hip_rotation"],
+    "geom:right_lower_leg1": ["act:right_knee"],
+    "geom:right_foot2": ["act:right_foot_flexion", "act:right_foot_inversion", "act:right_foot_rotation", "act:right_toes"]
+}
