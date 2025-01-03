@@ -14,7 +14,7 @@ setup(
     url='',
     license='',
     author='Dominik Mattern, Francisco M. López, Pierre Schumacher',
-    packages=['mimoEnv', 'mimoVision', 'mimoVestibular', 'mimoProprioception', 'mimoTouch', 'mimoActuation'],
+    packages=['mimoEnv', 'mimoVision', 'mimoVestibular', 'mimoProprioception', 'mimoTouch', 'mimoActuation', 'mimoBody'],
     install_requires=install_requires,
     author_email='domattee@yahoo.de',
     description='MIMo library'
