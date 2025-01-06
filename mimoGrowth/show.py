@@ -10,7 +10,7 @@ import numpy as np
 import xml.etree.ElementTree as ET
 
 
-def growing(physcis=False, active=False):
+def growing(physics=False, active=False):
     """..."""
 
     # Use a state to pause and reset the growth of MIMo.
@@ -24,7 +24,7 @@ def growing(physcis=False, active=False):
             state["reset"] = True
 
     # Load the model.
-    model = mujoco.MjModel.from_xml_path("mimoEnv/assets/physical_growth.xml")
+    model = mujoco.MjModel.from_xml_path("mimoEnv/assets/growth.xml")
     data = mujoco.MjData(model)
 
     # Add growth to the model and set the starting age to one month.
@@ -46,14 +46,14 @@ def growing(physcis=False, active=False):
             step_start = time.time()
 
             # Perform a step in the MuJoCo viewer.
-            if physcis:
+            if physics:
                 mujoco.mj_step(model, data)
             else:
                 mujoco.mj_forward(model, data)
             viewer.sync()
 
             # Let the simulation sleep either by the optimal or manual timestep.
-            if physcis:
+            if physics:
                 time_until_next_step = model.opt.timestep - (time.time() - step_start)
                 if time_until_next_step > 0:
                     time.sleep(time_until_next_step)
@@ -84,7 +84,7 @@ def multiple_mimos():
     AGES = [1, 8, 21.5, 15, 3]
 
     # Declare some necessary paths.
-    PATH_SCENE = "mimoEnv/assets/physical_growth.xml"
+    PATH_SCENE = "mimoEnv/assets/growth.xml"
     PATH_NEW_SCENE = "mimoEnv/assets/multiple_mimos.xml"
     PATH_META = "mimoEnv/assets/mimo/MIMo_meta.xml"
     PATH_NEW_META = "mimoEnv/assets/mimo/MIMo_meta_modified.xml"
@@ -189,5 +189,5 @@ def multiple_mimos():
 
 
 if __name__ == "__main__":
-    growing(physics=False, active=True)
+    growing(physics=False, active=False)
     # multiple_mimos()
