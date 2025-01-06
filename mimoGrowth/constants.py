@@ -1,8 +1,8 @@
 """
-The measurement values can be found on the following website: https://math.nist.gov/~SRessler/anthrokids/
+The measurements can be found on the following website: https://math.nist.gov/~SRessler/anthrokids/
 All values are provided in centimeter.
 
-The following shows
+The following list shows which measurements I used for which body parts:
 - head      : Head Circumference
 - upper_arm : [Upper Arm Circumference, Shoulder Elbow Length]
 - lower_arm : [Forearm Circumference, Elbow Hand Length - Hand Length]
@@ -11,7 +11,6 @@ The following shows
 - upper_leg : [Mid Thigh Circumference, Rump Knee Length]
 - lower_leg : [Calf Circumference, Ankle Circumference, Knee Sole Length]
 - foot      : [Foot Length, Foot Breadth]
-
 """
 
 import numpy as np
@@ -19,10 +18,11 @@ import numpy as np
 
 # Store the mean value for the different age groups from the website.
 # They will be needed to approximate a function that can predict sizes by age.
-AGE_MONTHS = [1, 3, 7, 10, 13.5, 17.5, 21.5]
+AGE_GROUPS = [1, 3, 7, 10, 13.5, 17.5, 21.5]
 
-# Store relevant measurements from the website and categorize them by body parts.
-# The docstring provides detailed information on how to find these exact values.
+# Store relevant measurements from the website and categorize them by body
+# parts. The docstring provides detailed information on how to find these
+# exact values.
 MEASUREMENTS = {
     "head": [[38.5, 41.7, 43.9, 45.5, 46.6, 46.8, 47.8]],
     "upper_arm": [
@@ -31,7 +31,10 @@ MEASUREMENTS = {
     ],
     "lower_arm": [
         [11.8, 13.1, 14.0, 14.3, 14.5, 14.5, 14.8],
-        [14.9 - 6.8, 16.6 - 7.4, 18.0 - 8.0, 19.6 - 8.9, 19.9 - 9.2, 20.7 - 9.3, 21.5 - 9.5]
+        [
+            14.9 - 6.8, 16.6 - 7.4, 18.0 - 8.0, 19.6 - 8.9,
+            19.9 - 9.2, 20.7 - 9.3, 21.5 - 9.5
+        ]
     ],
     "hand": [
         [6.8, 7.4, 8.0, 8.9, 9.2, 9.3, 9.5],
@@ -118,13 +121,13 @@ RATIOS_MIMO_BODIES = {
         0.105 / 0.112,  # model y-pos / calculated y-pos
         0.093 / 0.09  # model z-pos / calculated z-pos
     ],
-    "lower_arm": 0.1076 / 0.1082,  # ...
-    "hand": 0.087 / 0.097,  # ...
-    "lower_body": 0.076 / 0.101,  # ...
-    "upper_body": 0.091 / 0.105,  # ...
-    "upper_leg": 0.051 / 0.054,  # ...
-    "lower_leg": 0.135 / 0.133,  # ...
-    "foot": 0.177 / 0.178,  # ...
+    "lower_arm": 0.1076 / 0.1082,  # model z-pos / calculated z-pos
+    "hand": 0.087 / 0.097,  # model z-pos / calculated z-pos
+    "lower_body": 0.076 / 0.101,  # model z-pos / calculated z-pos
+    "upper_body": 0.091 / 0.105,  # model z-pos / calculated z-pos
+    "upper_leg": 0.051 / 0.054,  # model y-pos / calculated y-pos
+    "lower_leg": 0.135 / 0.133,  # model z-pos / calculated z-pos
+    "foot": 0.177 / 0.178,  # model z-pos / calculated z-pos
 }
 
 # Use ratios between different body parts from the original model to infer
@@ -152,13 +155,13 @@ RATIOS_DERIVED = {
         0.01 / np.sqrt((0.1189 / 2) * 0.025),  # half-height model / geometric mean of half-width and half-breadth
         (0.035 * 2) / (0.0249 + 0.035 * 2 + 0.007 * 2 + 0.01),  # foot2-to-length ratio
         (0.007 * 2) / (0.0249 + 0.035 * 2 + 0.007 * 2 + 0.01),  # toes1-to-length ratio
-        0.016 / 0.035,  # ...
+        0.016 / 0.035,  # x-pos foot1 / x-size foot2
     ]
 }
 
 # Map the keywords that are used in the measurements to the actual geom
 # names they are intended for.
-GEOM_MAPPING = {
+MAPPING_GEOM = {
     "head": ["head", ("geom:left_eye1", "geom:right_eye1")],
     "upper_arm": [("left_uarm1", "right_uarm1")],
     "lower_arm": [("left_larm", "right_larm")],
@@ -183,10 +186,9 @@ GEOM_MAPPING = {
     ]
 }
 
-# ...
-# note about only right
-# todo: check body parts that are made of multiple elements
-MOTOR_MAPPING = {
+# Map geoms to the corresponding motors. Note that below are only 'right' geoms and motors
+# stored. Since MIMo is symmetrical, the 'left' ones will be done via code.
+MAPPING_MOTOR = {
     "cb": ["act:hip_bend", "act:hip_twist", "act:hip_lean"],
     "head": ["act:head_swivel", "act:head_tilt", "act:head_tilt_side"],
     "geom:right_eye1": ["act:right_eye_horizontal", "act:right_eye_vertical", "act:right_eye_torsional"],
