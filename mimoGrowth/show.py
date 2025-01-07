@@ -81,8 +81,7 @@ def multiple_mimos():
 
     # Declare the ages for the different version of MIMo
     # and the order in which they should appear.
-    # AGES = [1, 8, 21.5, 15, 3]
-    AGES = [1, 21.5]
+    AGES = [1, 8, 21.5, 15, 3]
 
     # Decleare some necessary paths.
     PATH_SCENE_OG = "mimoEnv/assets/growth.xml"
@@ -99,6 +98,13 @@ def multiple_mimos():
     sc_include_meta = scene.find("include")
     sc_light = sc_worldbody.findall("light")[1]
 
+    # Store the original joint range values.
+    joint_ranges = {}
+    model_og = ET.parse("mimoEnv/assets/mimo/MIMo_model.xml").getroot()
+    for elem in model_og.iter():
+        if elem.tag == "joint":
+            joint_ranges[elem.attrib["name"]] = elem.attrib["range"]
+
     # Iterate over all ages.
     for i, age in enumerate(AGES):
 
@@ -114,6 +120,11 @@ def multiple_mimos():
         # Load the model as an XML file and extract the main <body> element.
         model = ET.parse(path_model).getroot()
         mo_body = model.find("worldbody").find("body[@name='mimo_location']").find("body")
+
+        # Readjust the joint range values.
+        for elem in mo_body.iter():
+            if elem.tag == "joint":
+                elem.attrib["range"] = joint_ranges[elem.attrib["name"]]
 
         # Create a new mujoco element and add the body.
         mo_mujoco = ET.Element("mujoco")
@@ -134,11 +145,10 @@ def multiple_mimos():
         # Change any name in the meta file to avoid duplicates.
         for elem in meta_file.iter():
             for key, val in elem.attrib.items():
-                if key in ["name", "joint1", "joint", "site"] and elem.tag not in ["material", "texture"]:
+                if key in ["name", "joint1", "joint", "site", "geom1", "geom2", "body1", "body2"] and elem.tag not in ["material", "texture"]:
                     elem.attrib[key] = f"{val}_{i}"
 
         # Remove some duplicatess.
-        meta_file.remove(meta_file.find("contact"))
         if i > 0:
             meta_file.remove(meta_file.find("default"))
             meta_file.remove(meta_file.find("asset"))
