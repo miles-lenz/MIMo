@@ -79,106 +79,112 @@ def growing(physics=False, active=False):
 def multiple_mimos():
     """..."""
 
-    # Set the ages you want to see in the order you
-    # want to see them.
-    AGES = [1, 8, 21.5, 15, 3]
+    # Declare the ages for the different version of MIMo
+    # and the order in which they should appear.
+    # AGES = [1, 8, 21.5, 15, 3]
+    AGES = [1, 21.5]
 
-    # Declare some necessary paths.
-    PATH_SCENE = "mimoEnv/assets/growth.xml"
-    PATH_NEW_SCENE = "mimoEnv/assets/multiple_mimos.xml"
-    PATH_META = "mimoEnv/assets/mimo/MIMo_meta.xml"
-    PATH_NEW_META = "mimoEnv/assets/mimo/MIMo_meta_modified.xml"
+    # Decleare some necessary paths.
+    PATH_SCENE_OG = "mimoEnv/assets/growth.xml"
+    PATH_SCENE_TEMP = "mimoEnv/assets/multiple_mimos.xml"
 
-    # Keep track of newly created files.
-    new_files = [PATH_NEW_SCENE]
+    # Keep track of temporary files so they can be
+    # deleted afterwards.
+    temp_files = [PATH_SCENE_TEMP]
+
+    # Load the scene and select certain tags.
+    scene = ET.parse(PATH_SCENE_OG).getroot()
+    sc_worldbody = scene.find("worldbody")
+    sc_body = sc_worldbody.find("body[@name='mimo_location']")
+    sc_include_meta = scene.find("include")
+    sc_light = sc_worldbody.findall("light")[1]
 
     # Iterate over all ages.
     for i, age in enumerate(AGES):
 
         # Load the model and let it grow to the current age.
-        model = mujoco.MjModel.from_xml_path(PATH_SCENE)
+        model = mujoco.MjModel.from_xml_path(PATH_SCENE_OG)
         Growth(model).adjust_mimo_to_age(age)
 
-        # Save the model.
+        # Save the model temporary.
         path_model = f"mimoEnv/assets/mimo/MIMo_model_{i}.xml"
         mujoco.mj_saveLastXML(path_model, model)
-        new_files.append(path_model)
+        temp_files.append(path_model)
 
-        # Load the model as an XML file.
+        # Load the model as an XML file and extract the main <body> element.
         model = ET.parse(path_model).getroot()
-        body = model.find("worldbody").find("body[@name='mimo_location']").find("body")
+        mo_body = model.find("worldbody").find("body[@name='mimo_location']").find("body")
 
-        # Create a new mujoco root and add the body.
-        new_root = ET.Element("mujoco")
-        new_root.set("model", "MIMo")
-        new_root.append(body)
+        # Create a new mujoco element and add the body.
+        mo_mujoco = ET.Element("mujoco")
+        mo_mujoco.set("model", "MIMo")
+        mo_mujoco.append(mo_body)
 
-        # Change the attribute names to avoid duplicates.
-        for elem in new_root.iter():
-            if "name" in elem.attrib:
+        # Change any name to avoid duplicates.
+        for elem in mo_mujoco.iter():
+            if "name" in elem.attrib.keys():
                 elem.attrib["name"] = f"{elem.attrib['name']}_{i}"
 
-        # Save the modified XML file.
-        new_tree = ET.ElementTree(new_root)
-        new_tree.write(path_model, encoding="utf-8", xml_declaration=True)
+        # Save the mujoco element as an XML file.
+        ET.ElementTree(mo_mujoco).write(path_model, encoding="utf-8", xml_declaration=True)
 
-    # Load the scene and change the path to the meta file.
-    scene = ET.parse(PATH_SCENE).getroot()
-    scene.find("include").set("file", "mimo/MIMo_meta_modified.xml")
+        # Load the meta file.
+        meta_file = ET.parse("mimoEnv/assets/mimo/MIMo_meta.xml").getroot()
 
-    # Get the MIMo body element.
-    worldbody = scene.find("worldbody")
-    body = worldbody.find("body[@name='mimo_location']")
+        # Change any name in the meta file to avoid duplicates.
+        for elem in meta_file.iter():
+            for key, val in elem.attrib.items():
+                if key in ["name", "joint1", "joint", "site"] and elem.tag not in ["material", "texture"]:
+                    elem.attrib[key] = f"{val}_{i}"
 
-    # Get the light element.
-    light_element = worldbody.findall("light")[1]
+        # Remove some duplicatess.
+        meta_file.remove(meta_file.find("contact"))
+        if i > 0:
+            meta_file.remove(meta_file.find("default"))
+            meta_file.remove(meta_file.find("asset"))
 
-    # Iterate over all different aged versions of MIMo.
-    for i, age in enumerate(AGES):
+        # Save a temporary meta file.
+        meta_temp_path = f"mimoEnv/assets/mimo/MIMo_meta_{i}.xml"
+        ET.ElementTree(meta_file).write(meta_temp_path, encoding="utf-8", xml_declaration=True)
+        temp_files.append(meta_temp_path)
 
-        # Copy the body and change name and position.
-        new_body = copy.deepcopy(body)
-        new_body.set("name", f"{body.attrib['name']}_{i}")
-        new_body.set("pos", f"0 {i * 0.4} 0")
+        # Copy the scene body and change name and position.
+        new_sc_body = copy.deepcopy(sc_body)
+        new_sc_body.set("name", f"{i}")
+        new_sc_body.set("pos", f"0 {i * 0.4} 0")
 
         # Change the path.
-        include = new_body.find("include")
-        include.set("file", f"mimo/MIMo_model_{i}.xml")
+        new_sc_include_model = new_sc_body.find("include")
+        new_sc_include_model.set("file", f"mimo/MIMo_model_{i}.xml")
 
         # Add a light.
-        new_light = copy.deepcopy(light_element)
-        new_light.set("target", f"upper_body_{i}")
-        new_light.set("diffuse", "0.17 0.17 0.17")
+        new_sc_light = copy.deepcopy(sc_light)
+        new_sc_light.set("target", f"upper_body_{i}")
+        new_sc_light.set("diffuse", "0.17 0.17 0.17")
 
         # Add body and light to the overall scene.
-        worldbody.append(new_body)
-        worldbody.append(new_light)
+        sc_worldbody.append(new_sc_body)
+        sc_worldbody.append(new_sc_light)
 
-    # Remove original body and light.
-    worldbody.remove(body)
-    worldbody.remove(light_element)
+        # Add an include for the meta file.
+        new_sc_include_meta = copy.deepcopy(sc_include_meta)
+        new_sc_include_meta.set("file", f"mimo/MIMo_meta_{i}.xml")
+        scene.append(new_sc_include_meta)
 
-    # Save the scene.
-    scene = ET.ElementTree(scene)
-    scene.write(PATH_NEW_SCENE, encoding="utf-8", xml_declaration=True)
+    # Remove the <include> element, the <body> for MIMo and the light.
+    scene.remove(sc_include_meta)
+    sc_worldbody.remove(sc_body)
+    sc_worldbody.remove(sc_light)
 
-    # Remove not needed meta elements.
-    tree = ET.parse(PATH_META)
-    root = tree.getroot()
-    for elem in list(root):
-        if elem.tag not in ['asset', 'default']:
-            root.remove(elem)
+    # Save the temporary scene.
+    ET.ElementTree(scene).write(PATH_SCENE_TEMP, encoding="utf-8", xml_declaration=True)
 
-    # Save the new meta file.
-    tree.write(PATH_NEW_META, encoding="utf-8", xml_declaration=True)
-    new_files.append(PATH_NEW_META)
-
-    # Load the model.
-    model = mujoco.MjModel.from_xml_path(PATH_NEW_SCENE)
+    # Load the model from the temporary scene.
+    model = mujoco.MjModel.from_xml_path(PATH_SCENE_TEMP)
     data = mujoco.MjData(model)
 
     # Remove any temporary files.
-    for file_ in new_files:
+    for file_ in temp_files:
         if os.path.exists(file_):
             os.remove(file_)
 
