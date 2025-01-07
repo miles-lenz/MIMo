@@ -77,7 +77,11 @@ def growing(physics=False, active=False):
 
 
 def multiple_mimos():
-    """..."""
+    """
+    Note that this function may affect the original behavior of MIMo.
+    Therefore, this method is intended only for asthetic purposes and
+    NOT for any RL experiments.
+    """
 
     # Declare the ages for the different version of MIMo
     # and the order in which they should appear.
@@ -161,7 +165,8 @@ def multiple_mimos():
         # Copy the scene body and change name and position.
         new_sc_body = copy.deepcopy(sc_body)
         new_sc_body.set("name", f"{i}")
-        new_sc_body.set("pos", f"0 {i * 0.4} 0")
+        new_sc_body.set("pos", f"0 {i * 0.4} 0")  # next to each other
+        # new_sc_body.set("pos", f"{i * 0.2} 0 0")  # in front of each other
 
         # Change the path.
         new_sc_include_model = new_sc_body.find("include")

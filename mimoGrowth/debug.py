@@ -31,7 +31,6 @@ def debug(growth_params, model_og):
             print(body_name, "pos", og_pos, params["pos"])
             any_issue = True
 
-    print("motor amount", len(growth_params["motor"].keys()))
     for motor_name, params in growth_params["motor"].items():
         og_gear = model_og.actuator_gear[model_og.actuator(motor_name).id]
         gear_is_close = np.isclose(og_gear, params["gear"])
