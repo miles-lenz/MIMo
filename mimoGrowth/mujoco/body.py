@@ -16,7 +16,7 @@ def calc_body_positions(geoms: dict) -> dict:
     g_l_leg2, g_foot = geoms["geom:left_lower_leg2"], geoms["geom:left_foot3"]
 
     # Calculate all body positions based on the geom sizes and/or positions.
-    hip = [0, 0, g_u_leg["size"][1] * 2 + g_l_leg1["size"][1] * 2 + g_l_leg2["size"][1] * 2 + g_foot["size"][1] + g_ub3["size"][0]]
+    hip = [0, 0, 0]
     lower_body = [0.002, 0, (g_lb["size"][0] + g_cb["size"][0]) * ratios["lower_body"]]
     upper_body = [-0.002, 0, (g_cb["size"][0] + g_ub1["size"][0]) * ratios["upper_body"]]
     eye = ratios["eye"] * g_head["size"][0]

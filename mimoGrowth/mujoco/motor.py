@@ -28,8 +28,11 @@ def calc_motor_gear(geoms: dict, model_og: MjModel) -> dict:
         # Calculate the gear value for each motor.
         for motor in motors:
 
-            # Get the original gear value.
-            gear_og = model_og.actuator_gear[model_og.actuator(motor).id]
+            # Get the original gear value if the motor is present in the model.
+            try:
+                gear_og = model_og.actuator_gear[model_og.actuator(motor).id]
+            except KeyError:
+                continue
 
             # Calculate the ratio based on the original gear and CSA values.
             ratio = gear_og / csa_og
