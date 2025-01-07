@@ -24,8 +24,6 @@
 
     </asset>
 
-    <include file="mimo/MIMo_meta.xml"></include>
-
     <worldbody>
 
         <geom name="floor" pos="0 0 0" size="0 0 .25" type="plane" material="matplane" condim="3"/>
@@ -43,5 +41,7 @@
 		</body>
 
     </worldbody>
+
+    <include file="mimo/MIMo_meta.xml"></include>
 
 </mujoco>
