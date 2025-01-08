@@ -10,7 +10,21 @@ import numpy as np
 import xml.etree.ElementTree as ET
 
 
-def growing(physics=False, active=False):
+def adjust_height(model):
+    """
+    This function adjust the height of MIMo so that he will
+    stand correctly on the ground.
+    """
+    height = sum([
+        -model.body("left_upper_leg").pos[2],
+        -model.body("left_lower_leg").pos[2],
+        -model.body("left_foot").pos[2],
+        model.geom("geom:left_foot2").size[2]
+    ])
+    model.body("hip").pos = [0, 0, height]
+
+
+def growing():
     """..."""
 
     # Use a state to pause and reset the growth of MIMo.
@@ -31,39 +45,24 @@ def growing(physics=False, active=False):
     age_months = 1
     model_with_growth = Growth(model)
     model_with_growth.adjust_mimo_to_age(age_months)
+    adjust_height(model)
 
-    # Launch the active MuJoCo viewer if specified.
-    if active:
-        with mujoco.viewer.launch(model, data) as viewer:
-            while viewer.is_running():
-                pass
-        return
-
-    # Launch the passive MuJoCo viewer.
+    # Launch the MuJoCo viewer.
     with mujoco.viewer.launch_passive(model, data, key_callback=key_callback) as viewer:
         while viewer.is_running():
 
-            step_start = time.time()
-
-            # Perform a step in the MuJoCo viewer.
-            if physics:
-                mujoco.mj_step(model, data)
-            else:
-                mujoco.mj_forward(model, data)
+            # Perform a mujoco step and sycn the viewer.
+            mujoco.mj_forward(model, data)
             viewer.sync()
 
-            # Let the simulation sleep either by the optimal or manual timestep.
-            if physics:
-                time_until_next_step = model.opt.timestep - (time.time() - step_start)
-                if time_until_next_step > 0:
-                    time.sleep(time_until_next_step)
-            else:
-                time.sleep(0.025)
+            # Let the simulation sleep. This controls how fast MIMo grows.
+            time.sleep(0.03)
 
             # Reset the model if wanted.
             if state["reset"]:
                 age_months = 1
                 model_with_growth.adjust_mimo_to_age(age_months)
+                adjust_height(model)
                 state["reset"], state["paused"] = False, True
                 continue
 
@@ -74,6 +73,7 @@ def growing(physics=False, active=False):
             # Let the model grow.
             age_months = np.round(age_months + 0.1, 1)
             model_with_growth.adjust_mimo_to_age(age_months)
+            adjust_height(model)
 
 
 def multiple_mimos():
@@ -115,6 +115,7 @@ def multiple_mimos():
         # Load the model and let it grow to the current age.
         model = mujoco.MjModel.from_xml_path(PATH_SCENE_OG)
         Growth(model).adjust_mimo_to_age(age)
+        adjust_height(model)
 
         # Save the model temporary.
         path_model = f"mimoEnv/assets/mimo/MIMo_model_{i}.xml"
@@ -210,5 +211,5 @@ def multiple_mimos():
 
 
 if __name__ == "__main__":
-    growing(physics=False, active=False)
+    growing()
     # multiple_mimos()

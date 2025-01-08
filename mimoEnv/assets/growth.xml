@@ -14,34 +14,32 @@
     <asset>
 
         <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="512"/>
+
         <texture name="texplane" type="2d" builtin="checker" rgb1=".2 .3 .4" rgb2=".1 0.15 0.2" width="512" height="512" mark="cross" markrgb=".8 .8 .8"/>
-        <texture name="texgeom" type="cube" builtin="flat" mark="cross" width="127" height="1278" rgb1="0.8 0.6 0.4" rgb2="0.8 0.6 0.4" markrgb="1 1 1" random="0.01"/>
         <material name="matplane" reflectance="0.3" texture="texplane" texrepeat="1 1" texuniform="true"/>
-        <material name="matgeom" texture="texgeom" texuniform="true" rgba="0.8 0.6 .4 1"/>
 
-        <texture name="cube" type="cube" builtin="flat" width="127" height="1278" rgb1="1 0.9 0.8" rgb2="1 1 1" markrgb="1 1 1"/>
-        <material name="cube" texture="cube" texuniform="true"/>
-
+        <texture name="wall" type="2d" builtin="checker" width="100" height="100" rgb1="0.8 0.8 0.8" rgb2="1 1 1" markrgb="1 1 1"/>
+        <material name="wall" texture="wall" texrepeat="10 10" texuniform="true" reflectance="0.3"/>
     </asset>
+
+    <include file="mimo/MIMo_meta.xml"></include>
 
     <worldbody>
 
         <geom name="floor" pos="0 0 0" size="0 0 .25" type="plane" material="matplane" condim="3"/>
 
         <light directional="false" diffuse=".4 .4 .4" specular="0 0 0" pos="0 0 10" dir="0 0 -1" castshadow="false"/>
-        <light mode="targetbodycom" target="upper_body" directional="false" diffuse=".8 .8 .8" specular="0.3 0.3 0.3" pos="0 0 5.0" dir="0 0 -1"/>
+        <light mode="targetbodycom" target="upper_body" directional="false" diffuse=".75 .75 .75" specular="0.3 0.3 0.3" pos="3 0 5" dir="0 0 -1"/>
 
         <body name="mimo_location" pos="0 0 0" euler="0 0 0">
             <freejoint/>
             <include file="mimo/MIMo_model.xml"></include>
         </body>
 
-        <body name="cube" pos="0 0 0">
-            <geom type="box" material="cube" size="0.25 0.25 0.25" pos="-0.5 -0.5 0.25" euler="0 0 45"/>
-		</body>
+        <body name="wall" pos="0 0 0">
+            <geom type="box" material="wall" size="0.5 0.5 0.01" pos="-0.1 0 0.5" euler="0 90 0"/>
+        </body>
 
     </worldbody>
-
-    <include file="mimo/MIMo_meta.xml"></include>
 
 </mujoco>
