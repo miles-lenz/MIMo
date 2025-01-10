@@ -15,13 +15,16 @@ def adjust_height(model):
     This function adjust the height of MIMo so that he will
     stand correctly on the ground.
     """
+
     height = sum([
         -model.body("left_upper_leg").pos[2],
         -model.body("left_lower_leg").pos[2],
         -model.body("left_foot").pos[2],
         model.geom("geom:left_foot2").size[2]
     ])
+
     model.body("hip").pos = [0, 0, height]
+    mujoco.mj_forward(model, mujoco.MjData(model))
 
 
 def growing():
@@ -211,5 +214,6 @@ def multiple_mimos():
 
 
 if __name__ == "__main__":
+    # test_standup()
     growing()
     # multiple_mimos()

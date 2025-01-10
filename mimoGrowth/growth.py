@@ -5,6 +5,7 @@ from mimoGrowth.mujoco import geom, body, motor
 # from mimoGrowth.debug import debug
 import mimoGrowth.utils as utils
 from mujoco import MjModel
+import mujoco
 
 
 class Growth:
@@ -32,6 +33,9 @@ class Growth:
         # Iterate over all motors and adjust their gear.
         for motor_name, params in growth_params["motor"].items():
             self.model.actuator_gear[self.model.actuator(motor_name).id] = params["gear"]
+
+        # Update the model state.
+        mujoco.mj_forward(self.model, mujoco.MjData(self.model))
 
     def calc_growth_params(self, age: float) -> dict:
         """..."""
