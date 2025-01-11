@@ -4,14 +4,15 @@ from mimoGrowth.constants import RATIOS_MIMO_GEOMS
 from mimoGrowth.mujoco import geom, body, motor
 # from mimoGrowth.debug import debug
 import mimoGrowth.utils as utils
-from mujoco import MjModel
+from mujoco import MjModel, MjData
 import mujoco
 
 
 class Growth:
 
-    def __init__(self, model: MjModel) -> None:
+    def __init__(self, model: MjModel, data: MjData) -> None:
         self.model = model
+        self.data = data
         self.model_og = model
         self.funcs = utils.approximate_functions()
 
@@ -35,7 +36,7 @@ class Growth:
             self.model.actuator_gear[self.model.actuator(motor_name).id] = params["gear"]
 
         # Update the model state.
-        mujoco.mj_forward(self.model, mujoco.MjData(self.model))
+        mujoco.mj_forward(self.model, self.data)
 
     def calc_growth_params(self, age: float) -> dict:
         """..."""
