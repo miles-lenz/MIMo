@@ -114,17 +114,21 @@ def calc_geom_positions(sizes: dict, extras: dict):
 def calc_geom_densities():
     """"..."""
 
-    tree = ElementTree.parse('mimoEnv/assets/mimo/MIMo_model.xml')
-    root = tree.getroot()
+    # Load the model.
+    model = ElementTree.parse('mimoEnv/assets/mimo/MIMo_model.xml')
 
-    for geom in root.findall(".//geom"):
+    # Iterate over all geoms.
+    for geom in model.getroot().findall(".//geom"):
 
+        # Get mass, size and type of the current geom and remove mass from geom.
         mass = float(geom.attrib.pop("mass"))
         size = [float(num) for num in re.sub(r'\s+', ' ', geom.attrib["size"]).split(" ")]
-
         type_ = geom.attrib["type"]
+
+        # Calculate the density and use formula depending on the type.
+        # Note that sizes sometimes are multiplied with two, since MuJoCo uses half-lengths.
         if type_ == "box":
-            density = mass / np.prod(size)
+            density = mass / (np.prod(size) * 8)
         elif type_ == "capsule":
             density = mass / (np.pi * size[0] ** 2 * size[1] * 2 + (4 / 3) * np.pi * size[0] ** 3)
         elif type_ == "cylinder":
@@ -132,9 +136,11 @@ def calc_geom_densities():
         elif type_ == "sphere":
             density = mass / ((4 / 3) * np.pi * size[0] ** 3)
 
+        # Store the density in the geom.
         geom.set("density", f'{density:.4f}')
 
-    tree.write('mimoEnv/assets/mimo/MIMo_model_density.xml', encoding='utf-8', xml_declaration=True)
+    # Save the model.
+    model.write('mimoEnv/assets/mimo/MIMo_model_density.xml', encoding='utf-8', xml_declaration=True)
 
 
 def calc_extras(sizes: dict) -> dict:

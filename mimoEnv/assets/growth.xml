@@ -20,6 +20,7 @@
 
         <texture name="wall" type="2d" builtin="checker" width="100" height="100" rgb1="0.8 0.8 0.8" rgb2="1 1 1" markrgb="1 1 1"/>
         <material name="wall" texture="wall" texrepeat="10 10" texuniform="true" reflectance="0.3"/>
+
     </asset>
 
     <include file="mimo/MIMo_meta.xml"></include>
@@ -32,10 +33,11 @@
         <light mode="targetbodycom" target="upper_body" directional="false" diffuse=".75 .75 .75" specular="0.3 0.3 0.3" pos="3 0 5" dir="0 0 -1"/>
 
         <body name="mimo_location" pos="0 0 0" euler="0 0 0">
-            <freejoint/>
+            <freejoint name="mimo_location"/>
             <include file="mimo/MIMo_model.xml"></include>
         </body>
 
+        <!-- This wall can be used as a reference while MIMo is growing. -->
         <body name="wall" pos="0 0 0">
             <geom type="box" material="wall" size="0.5 0.5 0.01" pos="-0.1 0 0.5" euler="0 90 0"/>
         </body>

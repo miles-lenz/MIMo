@@ -2,6 +2,7 @@
 
 from mimoGrowth.growth import Growth
 import time
+import argparse
 import os
 import copy
 import mujoco
@@ -10,12 +11,13 @@ import numpy as np
 import xml.etree.ElementTree as ET
 
 
-def adjust_height(model):
+def adjust_height(model, data):
     """
     This function adjust the height of MIMo so that he will
     stand correctly on the ground.
     """
 
+    # Calculate height based on leg and foot position/size.
     height = sum([
         -model.body("left_upper_leg").pos[2],
         -model.body("left_lower_leg").pos[2],
@@ -23,8 +25,9 @@ def adjust_height(model):
         model.geom("geom:left_foot2").size[2]
     ])
 
+    # Update the height.
     model.body("hip").pos = [0, 0, height]
-    mujoco.mj_forward(model, mujoco.MjData(model))
+    mujoco.mj_forward(model, data)
 
 
 def growing():
@@ -46,9 +49,9 @@ def growing():
 
     # Add growth to the model and set the starting age to one month.
     age_months = 1
-    model_with_growth = Growth(model)
+    model_with_growth = Growth(model, data)
     model_with_growth.adjust_mimo_to_age(age_months)
-    adjust_height(model)
+    adjust_height(model, data)
 
     # Launch the MuJoCo viewer.
     with mujoco.viewer.launch_passive(model, data, key_callback=key_callback) as viewer:
@@ -76,7 +79,7 @@ def growing():
             # Let the model grow.
             age_months = np.round(age_months + 0.1, 1)
             model_with_growth.adjust_mimo_to_age(age_months)
-            adjust_height(model)
+            adjust_height(model, data)
 
 
 def multiple_mimos():
@@ -117,8 +120,9 @@ def multiple_mimos():
 
         # Load the model and let it grow to the current age.
         model = mujoco.MjModel.from_xml_path(PATH_SCENE_OG)
-        Growth(model).adjust_mimo_to_age(age)
-        adjust_height(model)
+        data = mujoco.MjData(model)
+        Growth(model, data).adjust_mimo_to_age(age)
+        adjust_height(model, data)
 
         # Save the model temporary.
         path_model = f"mimoEnv/assets/mimo/MIMo_model_{i}.xml"
@@ -172,9 +176,9 @@ def multiple_mimos():
         new_sc_body.set("pos", f"0 {i * 0.4} 0")  # next to each other
         # new_sc_body.set("pos", f"{i * 0.2} 0 0")  # in front of each other
 
-        # Change the path.
-        new_sc_include_model = new_sc_body.find("include")
-        new_sc_include_model.set("file", f"mimo/MIMo_model_{i}.xml")
+        # Change the name of the joint and the path of the include.
+        new_sc_body.find("freejoint").set("name", f"mimo_location_{i}")
+        new_sc_body.find("include").set("file", f"mimo/MIMo_model_{i}.xml")
 
         # Add a light.
         new_sc_light = copy.deepcopy(sc_light)
@@ -207,6 +211,10 @@ def multiple_mimos():
         if os.path.exists(file_):
             os.remove(file_)
 
+    # Move the reference wall below the surface since it
+    # is only intended for the growing function.
+    model.body("wall").pos = [0, 0, -2]
+
     # Launch the MuJoCo viewer.
     with mujoco.viewer.launch(model, data) as viewer:
         while viewer.is_running():
@@ -214,6 +222,16 @@ def multiple_mimos():
 
 
 if __name__ == "__main__":
-    # test_standup()
-    growing()
-    # multiple_mimos()
+
+    # Create a mapping from keywords to functions.
+    func_map = {
+        "growing": growing,
+        "multiple_mimos": multiple_mimos
+    }
+
+    # Create a parser that allows to pass the name of the function to execute in the terminal.
+    parser = argparse.ArgumentParser(description="Run functions from the terminal.")
+    parser.add_argument("function", choices=["growing", "multiple_mimos"], help="The function to call.")
+
+    # Call the specified function.
+    func_map[parser.parse_args().function]()
