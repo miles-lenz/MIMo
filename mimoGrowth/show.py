@@ -53,6 +53,15 @@ def growing():
     model_with_growth.adjust_mimo_to_age(age_months)
     adjust_height(model, data)
 
+    # Specify which stages of age the reference cube should display.
+    # Use only integers in the range from 1 to 21. Otherwise, this will result in an error.
+    AGES_ON_CUBE = [1, 3, 6, 9, 12, 15, 18, 21]
+
+    # Store the materials for the age cube.
+    mat_age_cube = {}
+    for age in AGES_ON_CUBE:
+        mat_age_cube[age] = model.material(f"age_{age}").id
+
     # Launch the MuJoCo viewer.
     with mujoco.viewer.launch_passive(model, data, key_callback=key_callback) as viewer:
         while viewer.is_running():
@@ -62,14 +71,15 @@ def growing():
             viewer.sync()
 
             # Let the simulation sleep. This controls how fast MIMo grows.
-            time.sleep(0.03)
+            time.sleep(0.04)
 
             # Reset the model if wanted.
             if state["reset"]:
                 age_months = 1
                 model_with_growth.adjust_mimo_to_age(age_months)
-                adjust_height(model)
+                adjust_height(model, data)
                 state["reset"], state["paused"] = False, True
+                model.geom("ref_age").matid = mat_age_cube[1]
                 continue
 
             # Stop growing after MIMo has reached the maximum age.
@@ -77,9 +87,13 @@ def growing():
                 continue
 
             # Let the model grow.
-            age_months = np.round(age_months + 0.1, 1)
+            age_months = np.round(age_months + 0.05, 2)
             model_with_growth.adjust_mimo_to_age(age_months)
             adjust_height(model, data)
+
+            # Adjust the material of the age cube if the next age is reached.
+            if age_months in mat_age_cube.keys():
+                model.geom("ref_age").matid = mat_age_cube[age_months]
 
 
 def multiple_mimos():
@@ -211,9 +225,8 @@ def multiple_mimos():
         if os.path.exists(file_):
             os.remove(file_)
 
-    # Move the reference wall below the surface since it
-    # is only intended for the growing function.
-    model.body("wall").pos = [0, 0, -2]
+    # Hide the growth references.
+    model.body("growth_references").pos = [0, 0, -2]
 
     # Launch the MuJoCo viewer.
     with mujoco.viewer.launch(model, data) as viewer:
