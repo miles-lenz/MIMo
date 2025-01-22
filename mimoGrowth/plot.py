@@ -8,40 +8,46 @@ import argparse
 import mujoco
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import interp1d
 import xml.etree.ElementTree as ElementTree
 
-# todo: adjust style of plots to be more similar
+# todo: make plots more pretty
 
 
 def approximation():
     """..."""
 
-    # ? add polynomial fit again for comparison
     # ? add MSE and LOOCV
 
     # Pick a measurement from the constants.py file and add
-    # the correct description of this measurement. (see docstring in constants.py)
-    measurement = MEASUREMENTS["head"][0]
-    body_part_descr = "Head Circumference"
+    # the correct description of this measurement.
+    measurement = MEASUREMENTS["upper_leg"][0]
+    body_part_descr = "Mid Thigh Circumference"
 
     # Create evenly spaced samples based on min and max age.
     # This will be used to predict measurements between original data points.
     age_samples = np.linspace(min(AGE_GROUPS), max(AGE_GROUPS), 100)
 
-    # Approximate a cubic spline function based on the age groups and the
-    # body part measurement. Then, predict values between the original data
-    # using this function.
-    func = CubicSpline(AGE_GROUPS, measurement)
-    prediction = func(age_samples)
+    # Approximate different frunctions based on the age groups and the body
+    # part measurement. Then, predict values between the original data
+    # using these functions.
+    # Use comments to pick the functions you want to see.
+    predictions = {
+        # "Linear Spline": interp1d(AGE_GROUPS, measurement, kind="linear")(age_samples),
+        # "Quadratic Spline": interp1d(AGE_GROUPS, measurement, kind="quadratic")(age_samples),
+        "Cubic Spline": interp1d(AGE_GROUPS, measurement, kind="cubic")(age_samples),
+        # "Polynomial Fit (deg=1)": np.polyval(np.polyfit(AGE_GROUPS, measurement, deg=1), age_samples),
+        "Polynomial Fit (deg=3)": np.polyval(np.polyfit(AGE_GROUPS, measurement, deg=3), age_samples),
+        # "Polynomial Fit (deg=5)": np.polyval(np.polyfit(AGE_GROUPS, measurement, deg=5), age_samples),
+    }
 
-    # Plot the original data and the approximated function.
-    plt.plot(AGE_GROUPS, measurement, "o", label="Original Data", color="black")
-    plt.plot(age_samples, prediction, label="Approximated Cubic Spline Function")
-    plt.title(f"Predicting {body_part_descr} by Age with Cubic Spline Approximation", fontsize=16)
-    plt.xlabel("Age (Months)", fontsize=12)
-    plt.ylabel(f"{body_part_descr} (cm)", fontsize=12)
-    plt.grid(True)
+    # Plot the original data and the approximated function(s).
+    plt.plot(AGE_GROUPS, measurement, "ko", label="Original Data")
+    for title, pred in predictions.items():
+        plt.plot(age_samples, pred, label=title)
+    plt.title(f"Predicting {body_part_descr} by Age")
+    plt.xlabel("Age (Months)")
+    plt.ylabel(f"{body_part_descr} (cm)")
     plt.legend()
     plt.show()
 
@@ -78,58 +84,50 @@ def density():
         densities.append(int(density))
 
     # Plot the densities.
-    bars = plt.bar(names, densities, color="skyblue", edgecolor="black")
-    for bar in bars:
-        height = bar.get_height()
-        plt.text(
-            bar.get_x() + bar.get_width() / 2, height + 0.05, f"{height}",
-            ha="center", va="bottom", fontsize=10
-        )
-    plt.title("Density of All Geoms", fontsize=16)
-    plt.xlabel("Geom", fontsize=12, labelpad=10)
-    plt.ylabel("Density (kg/m³)", fontsize=12)
-    plt.xticks(rotation=90, fontsize=10)
+    plt.bar(names, densities, edgecolor="k")
+    plt.title("Density of Every Geom")
+    plt.xlabel("Geom")
+    plt.ylabel("Density (kg/m³)")
+    plt.xticks(rotation=90)
     plt.subplots_adjust(bottom=0.2)
     plt.show()
 
 
-def compare_csa_vol():
+def strength():
     """..."""
 
     # Load the model.
     model = mujoco.MjModel.from_xml_path("mimoEnv/assets/growth.xml")
     data = mujoco.MjData(model)
 
-    # Get the geom sizes for a specific age.
-    geoms = Growth(model, data).calc_growth_params(1)["geom"]
+    # Create an evenly spaced interval for the ages.
+    ages = np.linspace(1, 21.5, 100)
 
-    # Calculate CSA and volume values based on the geoms.
-    csa_vals = calc_motor_gear(geoms, model, use_csa=True)
-    vol_vals = calc_motor_gear(geoms, model, use_csa=False)
+    # Iterate over all ages.
+    csa_avgs, vol_avgs = [], []
+    for age in ages:
 
-    # Format CSA and volume values for plotting.
-    motors, gears = [], {"CSA": [], "Volume": []}
-    for motor in csa_vals.keys():
-        motor_format = motor.replace("act:", "").replace("right_", "").replace("left_", "")
-        if motor_format not in motors:
-            motors.append(motor_format)
-            gears["CSA"].append(np.round(csa_vals[motor]["gear"][0], 3))
-            gears["Volume"].append(np.round(vol_vals[motor]["gear"][0], 3))
+        # Get the geom sizes for a specific age.
+        geoms = Growth(model, data).calc_growth_params(age)["geom"]
 
-    # Plot the differenes between CSA and volume.
-    x = np.arange(len(motors))
-    width, multiplier = 0.25, 0
-    _, ax = plt.subplots(layout="constrained")
-    for attr, meas in gears.items():
-        offset = width * multiplier
-        rects = ax.bar(x + offset, meas, width, label=attr, edgecolor="black")
-        ax.bar_label(rects, padding=3, fontsize=10)
-        multiplier += 1
-    plt.title("Comparison of Predicted Gear Values Based on CSA vs. Volume", fontsize=16)
-    plt.ylabel("Gear Value", fontsize=12)
-    plt.xlabel("Motor", fontsize=12)
-    ax.set_xticks(x + width, motors)
-    plt.xticks(rotation=90, fontsize=10)
+        # Calculate CSA and volume values based on the geoms.
+        csa_vals = calc_motor_gear(geoms, model, use_csa=True)
+        vol_vals = calc_motor_gear(geoms, model, use_csa=False)
+
+        # Copmute the average gear value either based on CSA or volume.
+        avg_csa = np.mean([csa_vals[key]["gear"][0] for key in csa_vals.keys()])
+        avg_vol = np.mean([vol_vals[key]["gear"][0] for key in vol_vals.keys()])
+
+        # Store the averages.
+        csa_avgs.append(avg_csa)
+        vol_avgs.append(avg_vol)
+
+    # Plot the average gear values based on the age.
+    plt.plot(ages, csa_avgs, label="CSA")
+    plt.plot(ages, vol_avgs, label="Volume")
+    plt.title("Average Gear Value by Age")
+    plt.xlabel("Age (months)")
+    plt.ylabel("Average Gear Value")
     plt.legend()
     plt.show()
 
@@ -140,12 +138,12 @@ if __name__ == "__main__":
     func_map = {
         "approximation": approximation,
         "density": density,
-        "csa_vol": compare_csa_vol
+        "strength": strength,
     }
 
     # Create a parser that allows to pass the name of the function to execute in the terminal.
     parser = argparse.ArgumentParser(description="Run functions from the terminal.")
-    parser.add_argument("function", choices=["approx", "density", "csa_vol"], help="The function to call.")
+    parser.add_argument("function", choices=func_map.keys(), help="The function to call.")
 
     # Call the specified function.
     func_map[parser.parse_args().function]()
