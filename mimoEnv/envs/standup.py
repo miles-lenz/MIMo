@@ -100,6 +100,50 @@ class MIMoStandupEnv(MIMoEnv):
                          done_active=False,
                          **kwargs)
 
+        # === CHANGES BY MILES ===
+
+        # ! IMPORTANT !
+        # Before running any experiment, it is important to change the path
+        # to the MIMo model in the scene so that a model with densities instead
+        # of masses is used. This is crucial so that MIMo will have the correct
+        # mass at any age.
+
+        import mimoEnv.utils as mimo_utils
+        from mimoGrowth.growth import Growth
+
+        MIMO_AGE = 5
+
+        # Let MIMo grow to the specified age.
+        Growth(self.model, self.data).adjust_mimo_to_age(MIMO_AGE)
+
+        # Calculate the distance to the floor and adjust the height of MIMo.
+        distance_to_floor = self.data.body("left_foot").xpos[2] - self.model.geom("geom:left_foot1").size[1]
+        qpos = SITTING_POSITION["mimo_location"]
+        qpos[2] -= distance_to_floor
+        mimo_utils.set_joint_qpos(self.model, self.data, "mimo_location", qpos)
+
+        # Get some hand/finger sizes and positions.
+        hand_pos = self.data.body("right_hand").xpos
+        hand_size = self.model.geom("geom:right_hand1").size
+        finger_pos = self.data.body("right_fingers").xpos
+        finger_pos2 = self.data.body("left_fingers").xpos
+        finger_size = self.model.geom("geom:right_fingers1").size
+
+        # Change the crib position.
+        pos_x = (finger_pos2[0] * (0.098 / 0.09890521)) - finger_size[1] * 2
+        pos_z = hand_pos[2] * (0.42 / 0.45927906)
+        self.model.body("crib").pos = [pos_x, 0, pos_z]
+
+        # Change the crib size.
+        self.model.geom(self.model.body("crib").geomadr).size = [hand_size[1] * 2, 0.4, 0]
+
+        # Update the constraints for the fingers.
+        const1, const2 = self.model.eq_data[-4], self.model.eq_data[-5]
+        const1[5], const2[5] = finger_pos[2], finger_pos[2]  # todo: improve?
+        self.model.eq_data[-4], self.model.eq_data[-5] = const1, const2
+
+        # ========================
+
         self.init_crouch_position = self.data.qpos.copy()
 
     def compute_reward(self, achieved_goal, desired_goal, info):
@@ -188,7 +232,17 @@ class MIMoStandupEnv(MIMoEnv):
         Returns:
             float: 0.5
         """
-        return 0.5
+        # return 0.5
+
+        # === CHANGES BY MILES ===
+
+        # The goal is for MIMo to get his head higher than the crib.
+        head_radius = self.model.geom("head").size[0]
+        crib_height = self.model.body("crib").pos[2]
+
+        return head_radius + crib_height
+
+        # ========================
 
     def get_achieved_goal(self):
         """ Get the height of MIMos head.
