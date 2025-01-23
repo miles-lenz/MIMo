@@ -30,7 +30,7 @@ def adjust_height(model, data):
     mujoco.mj_forward(model, data)
 
 
-def growing():
+def growth():
     """..."""
 
     # Use a state to pause and reset the growth of MIMo.
@@ -234,17 +234,58 @@ def multiple_mimos():
             pass
 
 
+def position(age: str, pos: str = None, passive: bool = False):
+    """..."""
+
+    # Load the model.
+    model = mujoco.MjModel.from_xml_path("mimoEnv/assets/growth.xml")
+    data = mujoco.MjData(model)
+
+    # Let MIMo grow.
+    Growth(model, data).adjust_mimo_to_age(float(age))
+    adjust_height(model, data)
+
+    # Change MIMo to the specified position.
+    if pos == "prone":
+        model.body("hip").quat = [0, -0.7071068, 0, 0.7071068]
+    elif pos == "supine":
+        model.body("hip").quat = [0, 0.7071068, 0, 0.7071068]
+
+    # Hide the growth references.
+    model.body("growth_references").pos = [0, 0, -2]
+
+    # === USE THIS SPACE FOR ANY ADDITIONAL CHANGES OR DEBUGGING ===
+    # ...
+    # ==============================================================
+
+    # Load an active or passive launcher.
+    launch = mujoco.viewer.launch_passive if passive else mujoco.viewer.launch
+
+    # Launch the MuJoCo viewer.
+    with launch(model, data) as viewer:
+        while viewer.is_running():
+            pass
+
+
 if __name__ == "__main__":
 
     # Create a mapping from keywords to functions.
     func_map = {
-        "growing": growing,
-        "multiple_mimos": multiple_mimos
+        "growth": growth,
+        "multiple_mimos": multiple_mimos,
+        "position": position,
     }
 
-    # Create a parser that allows to pass the name of the function to execute in the terminal.
+    # Create a parser that allows to select the function to execute with additional arguments.
     parser = argparse.ArgumentParser(description="Run functions from the terminal.")
-    parser.add_argument("function", choices=["growing", "multiple_mimos"], help="The function to call.")
+    parser.add_argument("function", choices=func_map.keys(), help="The function to call.")
+    parser.add_argument("kwargs", nargs=argparse.REMAINDER, help="Additional keyword arguments.")
+
+    # Store the passed arguments so they can be passed to a function.
+    kwargs = {}
+    for param in parser.parse_args().kwargs:
+        key, value = param.split("=")
+        kwargs[key] = value
 
     # Call the specified function.
-    func_map[parser.parse_args().function]()
+    func_map[parser.parse_args().function](**kwargs)
