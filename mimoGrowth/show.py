@@ -1,6 +1,7 @@
 """..."""
 
 from mimoGrowth.growth import Growth
+import mimoEnv.utils as mimo_utils
 import time
 import argparse
 import os
@@ -234,29 +235,54 @@ def multiple_mimos():
             pass
 
 
-def position(age: str, pos: str = None, passive: bool = False):
+def position(age: str, pos: str = None, passive: str = "False"):
     """..."""
 
+    # Convert arguments to correct types.
+    age, passive = float(age), eval(passive)
+
     # Load the model.
-    model = mujoco.MjModel.from_xml_path("mimoEnv/assets/growth.xml")
+    model = mujoco.MjModel.from_xml_path("mimoEnv/assets/roll_over.xml")
     data = mujoco.MjData(model)
 
-    # Let MIMo grow.
-    Growth(model, data).adjust_mimo_to_age(float(age))
-    adjust_height(model, data)
+    # Try to hide the growth references.
+    try:
+        model.body("growth_references").pos = [0, 0, -5]
+    except KeyError:
+        pass
+
+    # Let MIMo grow and adjust standing height if no position was given.
+    Growth(model, data).adjust_mimo_to_age(age)
+    if not pos:
+        adjust_height(model, data)
 
     # Change MIMo to the specified position.
     if pos == "prone":
         model.body("hip").quat = [0, -0.7071068, 0, 0.7071068]
+        model.body("hip").pos = [0, 0, 0.1]
+        for _ in range(100):
+            mujoco.mj_step(model, data)
     elif pos == "supine":
         model.body("hip").quat = [0, 0.7071068, 0, 0.7071068]
+        model.body("hip").pos = [0, 0, 0.1]
+        for _ in range(100):
+            mujoco.mj_step(model, data)
+    elif pos == "roll_over":
+        model.body("hip").quat = [0, 0.7071068, 0, 0.7071068]
+        model.body("hip").pos = [0, 0, 0.1]
+        for _ in range(100):
+            mujoco.mj_step(model, data)
+        mimo_utils.set_joint_qpos(model, data, "robot:right_hip1", [-2.3])
+        mimo_utils.set_joint_qpos(model, data, "robot:right_knee", [-2.3])
+        mimo_utils.set_joint_qpos(model, data, "robot:right_shoulder_horizontal", [1.4])
+        mimo_utils.set_joint_qpos(model, data, "robot:right_shoulder_ad_ab", [0.3])
+        mimo_utils.set_joint_qpos(model, data, "robot:right_shoulder_rotation", [0.4])
+        mimo_utils.set_joint_qpos(model, data, "robot:right_elbow", [-1.4])
+        mimo_utils.set_joint_qpos(model, data, "robot:head_swivel", [0.8])
 
-    # Hide the growth references.
-    model.body("growth_references").pos = [0, 0, -2]
-
-    # === USE THIS SPACE FOR ANY ADDITIONAL CHANGES OR DEBUGGING ===
+    # === USE THE SPACE BELOW FOR DEBUGGING ===
     # ...
-    # ==============================================================
+    # =========================================
 
     # Load an active or passive launcher.
     launch = mujoco.viewer.launch_passive if passive else mujoco.viewer.launch
