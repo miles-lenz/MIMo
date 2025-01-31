@@ -12,23 +12,64 @@ import numpy as np
 import xml.etree.ElementTree as ET
 
 
-def adjust_height(model, data):
-    """
-    This function adjust the height of MIMo so that he will
-    stand correctly on the ground.
-    """
+def adjust_pos(pos, model, data):
+    """..."""
 
-    # Calculate height based on leg and foot position/size.
-    height = sum([
-        -model.body("left_upper_leg").pos[2],
-        -model.body("left_lower_leg").pos[2],
-        -model.body("left_foot").pos[2],
-        model.geom("geom:left_foot2").size[2]
-    ])
+    # Adjust MIMo to a standing position by calculating his height
+    # based on leg and foot positions and size.
+    if pos == "stand":
+        height = sum([
+            -model.body("left_upper_leg").pos[2],
+            -model.body("left_lower_leg").pos[2],
+            -model.body("left_foot").pos[2],
+            model.geom("geom:left_foot2").size[2]
+        ])
+        model.body("hip").pos = [0, 0, height]
+        mujoco.mj_forward(model, data)
 
-    # Update the height.
-    model.body("hip").pos = [0, 0, height]
-    mujoco.mj_forward(model, data)
+    # Adjust MIMo to prone or supine position by rotating him accordingly
+    # and then performing some simulation steps to stettle the position.
+    elif pos in ["prone", "supine"]:
+        model.body("hip").pos = [0, 0, 0.2]
+        model.body("hip").quat = [0, -0.7071068, 0, 0.7071068] if pos == "prone" else [0, 0.7071068, 0, 0.7071068]
+        for _ in range(100):
+            mujoco.mj_step(model, data)
+
+    # Adjust MIMo to sit by rotating his legs and then performing
+    # some simulation steps to let him settle.
+    elif "sit" in pos:
+        model.body("hip").pos = [0, 0, data.geom("lb").xpos[2] + model.geom("lb").size[0] - model.geom("lb").pos[2]]
+        mimo_utils.set_joint_qpos(model, data, "robot:right_hip1", [-1.58])
+        mimo_utils.set_joint_qpos(model, data, "robot:left_hip1", [-1.58])
+        for _ in range(5):
+            mujoco.mj_step(model, data)
+
+        # Make MIMo lean into the specified direction.
+        # This is useful for strength tests.
+        if "_" in pos:
+            factor, direction = 1, pos.split("_")[1]
+            joint_values = {
+                "forward": [
+                    ("robot:hip_bend1", [0.1 * factor]),
+                    ("robot:hip_bend2", [0.1 * factor])
+                ],
+                "backward": [
+                    ("robot:hip_bend1", [-0.1 * factor]),
+                    ("robot:hip_bend2", [-0.1 * factor])
+                ],
+                "left": [
+                    ("robot:hip_lean1", [-0.1 * factor]),
+                    ("robot:hip_lean2", [-0.1 * factor]),
+                    ("robot:left_fingers", [-2.5]),
+                ],
+                "right": [
+                    ("robot:hip_lean1", [0.1 * factor]),
+                    ("robot:hip_lean2", [0.1 * factor]),
+                    ("robot:right_fingers", [-2.5]),
+                ]
+            }
+            for name, val in joint_values[direction]:
+                mimo_utils.set_joint_qpos(model, data, name, val)
 
 
 def growth():
@@ -52,7 +93,7 @@ def growth():
     age_months = 1
     model_with_growth = Growth(model, data)
     model_with_growth.adjust_mimo_to_age(age_months)
-    adjust_height(model, data)
+    adjust_pos("stand", model, data)
 
     # Specify which stages of age the reference cube should display.
     # Use only integers in the range from 1 to 21. Otherwise, this will result in an error.
@@ -78,7 +119,7 @@ def growth():
             if state["reset"]:
                 age_months = 1
                 model_with_growth.adjust_mimo_to_age(age_months)
-                adjust_height(model, data)
+                adjust_pos("stand", model, data)
                 state["reset"], state["paused"] = False, True
                 model.geom("ref_age").matid = mat_age_cube[1]
                 continue
@@ -90,7 +131,7 @@ def growth():
             # Let the model grow.
             age_months = np.round(age_months + 0.05, 2)
             model_with_growth.adjust_mimo_to_age(age_months)
-            adjust_height(model, data)
+            adjust_pos("stand", model, data)
 
             # Adjust the material of the age cube if the next age is reached.
             if age_months in mat_age_cube.keys():
@@ -137,7 +178,7 @@ def multiple_mimos():
         model = mujoco.MjModel.from_xml_path(PATH_SCENE_OG)
         data = mujoco.MjData(model)
         Growth(model, data).adjust_mimo_to_age(age)
-        adjust_height(model, data)
+        adjust_pos("stand", model, data)
 
         # Save the model temporary.
         path_model = f"mimoEnv/assets/mimo/MIMo_model_{i}.xml"
@@ -235,62 +276,85 @@ def multiple_mimos():
             pass
 
 
-def position(age: str, pos: str = None, passive: str = "False"):
+def strength_test(action: str = None, pos: str = "stand", age: str = "17.5"):
     """..."""
 
     # Convert arguments to correct types.
-    age, passive = float(age), eval(passive)
+    age = float(age)
 
     # Load the model.
-    model = mujoco.MjModel.from_xml_path("mimoEnv/assets/roll_over.xml")
+    model = mujoco.MjModel.from_xml_path("mimoEnv/assets/growth.xml")
     data = mujoco.MjData(model)
 
-    # Try to hide the growth references.
-    try:
-        model.body("growth_references").pos = [0, 0, -5]
-    except KeyError:
-        pass
-
-    # Let MIMo grow and adjust standing height if no position was given.
+    # Let MIMo grow.
     Growth(model, data).adjust_mimo_to_age(age)
-    if not pos:
-        adjust_height(model, data)
 
-    # Change MIMo to the specified position.
-    if pos == "prone":
-        model.body("hip").quat = [0, -0.7071068, 0, 0.7071068]
-        model.body("hip").pos = [0, 0, 0.1]
-        for _ in range(100):
-            mujoco.mj_step(model, data)
-    elif pos == "supine":
-        model.body("hip").quat = [0, 0.7071068, 0, 0.7071068]
-        model.body("hip").pos = [0, 0, 0.1]
-        for _ in range(100):
-            mujoco.mj_step(model, data)
-    elif pos == "roll_over":
-        model.body("hip").quat = [0, 0.7071068, 0, 0.7071068]
-        model.body("hip").pos = [0, 0, 0.1]
-        for _ in range(100):
-            mujoco.mj_step(model, data)
-        mimo_utils.set_joint_qpos(model, data, "robot:right_hip1", [-2.3])
-        mimo_utils.set_joint_qpos(model, data, "robot:right_knee", [-2.3])
-        mimo_utils.set_joint_qpos(model, data, "robot:right_shoulder_horizontal", [1.4])
-        mimo_utils.set_joint_qpos(model, data, "robot:right_shoulder_ad_ab", [0.3])
-        mimo_utils.set_joint_qpos(model, data, "robot:right_shoulder_rotation", [0.4])
-        mimo_utils.set_joint_qpos(model, data, "robot:right_elbow", [-1.4])
-        mimo_utils.set_joint_qpos(model, data, "robot:head_swivel", [0.8])
+    # Hide the growth references.
+    model.body("growth_references").pos = [0, 0, -5]
 
-    # === USE THE SPACE BELOW FOR DEBUGGING ===
-    # ...
-    # =========================================
+    # Adjust the starting position depending on the task.
+    adjust_pos(pos, model, data)
 
-    # Load an active or passive launcher.
-    launch = mujoco.viewer.launch_passive if passive else mujoco.viewer.launch
+    # Store the initial position.
+    qpos_init = data.qpos.copy()
+    qvel_init = data.qvel.copy()
+
+    # Use a state to reset and run the test.
+    state = {"reset": False, "run": 0}
+
+    # Declare which keys can reset/run.
+    def key_callback(keycode):
+        if keycode == 32:  # space
+            state["run"] += 1
+        elif keycode == 341:  # strg
+            state["reset"] = True
 
     # Launch the MuJoCo viewer.
-    with launch(model, data) as viewer:
+    with mujoco.viewer.launch_passive(model, data, key_callback=key_callback) as viewer:
         while viewer.is_running():
-            pass
+
+            if not action:
+                continue
+
+            step_start = time.time()
+
+            if "sit" not in pos or state["run"]:
+                mujoco.mj_step(model, data)
+
+            if state["reset"]:
+                data.qpos[:], data.qvel[:] = qpos_init, qvel_init
+                data.ctrl[:] = np.zeros(len(data.ctrl))
+                mujoco.mj_forward(model, data)
+                state["reset"], state["run"] = False, 0
+
+            if state["run"] == 1:
+                if action == "lift_head" and pos in ["prone", "supine"]:
+                    data.ctrl[4] = -1 if pos == "prone" else 1  # head_tilt
+                elif action == "lift_chest" and pos == "prone":
+                    data.ctrl[0] = -1  # hip_bend
+                    data.ctrl[4] = -1  # head_tilt
+                elif action == "lift_legs" and pos == "supine":
+                    data.ctrl[28] = -1  # right_hip_flex
+                    data.ctrl[36] = -1  # left_hip_flex
+                elif action == "lean" and "sit_" in pos:
+                    sit_dir = pos.split("_")[1]
+                    if sit_dir == "forward":
+                        data.ctrl[0] = -1  # hip_bend (backwards)
+                    elif sit_dir == "backward":
+                        data.ctrl[0] = 1  # hip_bend  (forwards)
+                    elif sit_dir == "left":
+                        data.ctrl[2] = 1  # hip_lean (to the right)
+                    elif sit_dir == "right":
+                        data.ctrl[2] = -1  # hip_lean (to the left)
+                else:
+                    print("Unknown configuration. Nothing happens.")
+                state["run"] += 1
+
+            viewer.sync()
+
+            time_until_next_step = model.opt.timestep - (time.time() - step_start)
+            if time_until_next_step > 0:
+                time.sleep(time_until_next_step)
 
 
 if __name__ == "__main__":
@@ -299,7 +363,7 @@ if __name__ == "__main__":
     func_map = {
         "growth": growth,
         "multiple_mimos": multiple_mimos,
-        "position": position,
+        "strength_test": strength_test
     }
 
     # Create a parser that allows to select the function to execute with additional arguments.
