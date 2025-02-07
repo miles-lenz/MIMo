@@ -47,7 +47,7 @@ def adjust_pos(pos, model, data):
         # Make MIMo lean into the specified direction.
         # This is useful for strength tests.
         if "_" in pos:
-            factor, direction = 1, pos.split("_")[1]
+            factor, direction = 2, pos.split("_")[1]
             joint_values = {
                 "forward": [
                     ("robot:hip_bend1", [0.1 * factor]),
@@ -276,11 +276,11 @@ def multiple_mimos():
             pass
 
 
-def strength_test(action: str = None, pos: str = "stand", age: str = "17.5"):
+def strength_test(action: str = None, pos: str = "stand", age: str = "17.5", active: str = "False"):
     """..."""
 
     # Convert arguments to correct types.
-    age = float(age)
+    age, active = float(age), eval(active)
 
     # Load the model.
     model = mujoco.MjModel.from_xml_path("mimoEnv/assets/growth.xml")
@@ -308,6 +308,16 @@ def strength_test(action: str = None, pos: str = "stand", age: str = "17.5"):
             state["run"] += 1
         elif keycode == 341:  # strg
             state["reset"] = True
+
+    # Allow an active viewer if not action is set.
+    if active and action:
+        print("The parameters 'active' and 'action' can't be set at the same time.")
+        return
+    if active:
+        with mujoco.viewer.launch(model, data) as viewer:
+            while viewer.is_running():
+                pass
+        return
 
     # Launch the MuJoCo viewer.
     with mujoco.viewer.launch_passive(model, data, key_callback=key_callback) as viewer:
@@ -347,7 +357,7 @@ def strength_test(action: str = None, pos: str = "stand", age: str = "17.5"):
                     elif sit_dir == "right":
                         data.ctrl[2] = -1  # hip_lean (to the left)
                 else:
-                    print("Unknown configuration. Nothing happens.")
+                    print("Unknown configuration for 'pos' and 'action'. Nothing happens.")
                 state["run"] += 1
 
             viewer.sync()
