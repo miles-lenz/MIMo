@@ -7,6 +7,7 @@ import numpy as np
 import os
 
 MIMO_AGE = 17.5
+TASK = ["BELLY_TO_BACK", "BACK_TO_BELLY"][0]
 SCENE_PATH = os.path.join(SCENE_DIRECTORY, "roll_over.xml")
 
 
@@ -39,7 +40,10 @@ class MIMoRollOverEnv(MIMoEnv):
         Growth(self.model, self.data).adjust_mimo_to_age(MIMO_AGE)
 
         # Bring MIMo into start position.
-        adjust_pos("supine", self.model, self.data)
+        if TASK == "BELLY_TO_BACK":
+            adjust_pos("prone", self.model, self.data)
+        else:
+            adjust_pos("supine", self.model, self.data)
 
         # Store the initial position.
         self.init_position = self.data.qpos.copy()
@@ -87,15 +91,18 @@ class MIMoRollOverEnv(MIMoEnv):
 
         # Calculate the normalized hip rotation around the y-axis.
         # This value will be 0 if MIMo lies on the back and it will be
-        # 1 when MIMo lies on the  belly.
+        # 1 when MIMo lies on the belly.
         xmat = self.data.body("hip").xmat.reshape(3, 3)
         angle = np.arctan2(-xmat[2, 0], np.sqrt(xmat[2, 1] ** 2 + xmat[2, 2] ** 2)) * (180 / np.pi)
         angle_norm = (angle - (-90)) / (90 - (-90))
 
+        # Invert the normalized angle depending on the task.
+        if TASK == "BELLY_TO_BACK":
+            angle_norm = 1 - angle_norm
+
         return angle_norm
 
     def compute_reward(self, achieved_goal, desired_goal, info):
-        """..."""
 
         # Use the hip rotation as the main reward.
         reward = achieved_goal  # [0, 1]
