@@ -200,7 +200,25 @@ def calc_extras(sizes: dict) -> dict:
     return extras
 
 
-def calc_geom_params(sizes: dict):
+def calc_geom_masses(params, og_vals):
+    """..."""
+
+    for geom_name, attributes in params.items():
+
+        type_ = og_vals["geom"][geom_name]["type"]
+        size = attributes["size"]
+
+        if type_ == "sphere":
+            vol = (4 / 3) * np.pi * size[0] ** 3
+        elif type_ == "capsule":
+            vol = (4 / 3) * np.pi * size[0] ** 3 + np.pi * size[0] ** 2 * size[1] * 2
+        elif type_ == "box":
+            vol = np.prod(size) * 8
+
+        attributes["mass"] = vol * og_vals["geom"][geom_name]["density"]
+
+
+def calc_geom_params(sizes: dict, original_values: dict) -> dict:
     """..."""
 
     # Calculate some extra values that are not
@@ -223,6 +241,9 @@ def calc_geom_params(sizes: dict):
             for key in keys:
                 size, pos = geom_sizes[body_part][i], geom_pos[body_part][i]
                 params[key] = {"size": size, "pos": pos}
+
+    # ...
+    calc_geom_masses(params, original_values)
 
     return params
 

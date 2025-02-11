@@ -1,5 +1,7 @@
 """
-The measurements can be found on the following website: https://math.nist.gov/~SRessler/anthrokids/
+The measurements can be found on the following website:
+https://math.nist.gov/~SRessler/anthrokids/
+
 All values are provided in centimeter.
 
 The following list shows which measurements I used for which body parts:
@@ -57,8 +59,8 @@ MEASUREMENTS = {
     ],
 }
 
-# Store the type of all measurements. This will be useful when the measurements
-# are prepared for usage in the MuJoCo model.
+# Store the type of all measurements. This will be useful when the
+# measurements are prepared for usage in the MuJoCo model.
 MEASUREMENT_TYPES = {
     "head": ["circ"],
     "upper_arm": ["circ", "len"],
@@ -70,23 +72,31 @@ MEASUREMENT_TYPES = {
     "foot": ["len", "len"],
 }
 
-# Store ratios that describe the difference between measurements and the original
-# MIMo model. These ratios will be used to maintain all the small tweaks that
-# were made by hand along any age.
+# Store ratios that describe the difference between measurements and the
+# original MIMo model. These ratios will be used to maintain all the small
+# tweaks that were made by hand along any age.
 RATIOS_MIMO_GEOMS = {
-    "head": [(0.0735 * 200 * np.pi) / 46.8],  # circumference model / circumference measurement
+    # circum model / circumference measurement
+    "head": [(0.0735 * 200 * np.pi) / 46.8],
     "upper_arm": [
-        (0.024 * 200 * np.pi) / 14.7,  # circumference model / circumference measurement
-        (0.0536 * 2) / ((15.4 - (2 * (14.7 / (2 * np.pi)))) / 100),  # middle-length model / middle-length measurement
+        # circumference model / circumference measurement
+        (0.024 * 200 * np.pi) / 14.7,
+        # middle-length model / middle-length measurement
+        (0.0536 * 2) / ((15.4 - (2 * (14.7 / (2 * np.pi)))) / 100),
     ],
     "lower_arm": [
-        (0.023 * 200 * np.pi) / 14.5,  # circumference model / circumference measurement
-        (0.037 * 2) / (((20.7 - 9.3) - (2 * (14.5 / (2 * np.pi)))) / 100),  # middle-length model / middle-length measurement
+        # circumference model / circumference measurement
+        (0.023 * 200 * np.pi) / 14.5,
+        # middle-length model / middle-length measurement
+        (0.037 * 2) / (((20.7 - 9.3) - (2 * (14.5 / (2 * np.pi)))) / 100),
     ],
     "hand": [
-        ((0.0208 * 2 + 0.0207 * 2 + 0.0102) * 100) / 9.3,  # length model / length measurement
-        (0.0228 * 2 * 100) / 4.6,  # hand breadth model / hand breadth measurement
-        (0.0281 * 2 * 100) / 5.5,  # fist breadth model / fist breadth measurement
+        # length model / length measurement
+        ((0.0208 * 2 + 0.0207 * 2 + 0.0102) * 100) / 9.3,
+        # hand breadth model / hand breadth measurement
+        (0.0228 * 2 * 100) / 4.6,
+        # fist breadth model / fist breadth measurement
+        (0.0281 * 2 * 100) / 5.5,
     ],
     "torso": [
         # breadth model / breadth measurement
@@ -97,26 +107,35 @@ RATIOS_MIMO_GEOMS = {
         ((0.041 * 2 + 0.047 * 2) * 100) / 17.1   # ub3
     ],
     "upper_leg": [
-        (0.037 * 200 * np.pi) / 24.4,  # circumference model / circumference measurement
-        (0.0625 * 2) / ((21.3 - (2 * (24.4 / (2 * np.pi)))) / 100),  # middle-length model / middle-length measurement
+        # circumference model / circumference measurement
+        (0.037 * 200 * np.pi) / 24.4,
+        # middle-length model / middle-length measurement
+        (0.0625 * 2) / ((21.3 - (2 * (24.4 / (2 * np.pi)))) / 100),
     ],
     "lower_leg": [
-        (0.029 * 200 * np.pi) / 18.4,  # circumference calve model / circumference calve measurement
-        (0.021 * 200 * np.pi) / 13.3,  # circumference ankle model / circumference ankle measurement
-        (((0.02 + 0.029 + 0.044 * 2 + 0.021 + 0.028 * 2) * 100)) / 21.6,  # length model (with foot) / length measurement
+        # circumference calve model / circumference calve measurement
+        (0.029 * 200 * np.pi) / 18.4,
+        # circumference ankle model / circumference ankle measurement
+        (0.021 * 200 * np.pi) / 13.3,
+        # length model (with foot) / length measurement
+        (((0.02 + 0.029 + 0.044 * 2 + 0.021 + 0.028 * 2) * 100)) / 21.6,
     ],
     "foot": [
-        (0.0249 + 0.035 * 2 + 0.007 * 2 + 0.01) * 100 / 11.9,  # length model / length measurement
-        (0.025 * 2 * 100) / 5,  # breadth model / breadth measurement
+        # length model / length measurement
+        (0.0249 + 0.035 * 2 + 0.007 * 2 + 0.01) * 100 / 11.9,
+        # breadth model / breadth measurement
+        (0.025 * 2 * 100) / 5,
     ]
 }
 
 # Store ratios that describe the difference between the body positions from the
-# original model and the computed position based on other body parts. These ratios
-# will be used to maintain all the small tweaks that were made by hand along any age.
+# original model and the computed position based on other body parts.
+# These ratios will be used to maintain all the small tweaks that were made
+# by hand along any age.
 RATIOS_MIMO_BODIES = {
     "head": 0.135 / 0.131,  # model pos / calculated pos
-    "eye": np.array([0.07, 0.0245, 0.067375]) / 0.0735,  # model pos / model head circumference
+    # eye: model pos / model head circumference
+    "eye": np.array([0.07, 0.0245, 0.067375]) / 0.0735,
     "upper_arm": [
         0.105 / 0.112,  # model y-pos / calculated y-pos
         0.093 / 0.09  # model z-pos / calculated z-pos
@@ -135,8 +154,10 @@ RATIOS_MIMO_BODIES = {
 RATIOS_DERIVED = {
     "eye": 0.01125 / 0.0735,  # radius eye / radius head
     "hand": [
-        0.01 / np.sqrt((0.0932 / 2) * 0.0228),  # height model / geometric mean of half-length and half-breadth of hand
-        0.0208 / (0.0208 + 0.0207),  # hand1-to-fingers1 length ratio
+        # height model / geometric mean of half-length and half-breadth of hand
+        0.01 / np.sqrt((0.0932 / 2) * 0.0228),
+        # hand1-to-fingers1 length ratio
+        0.0208 / (0.0208 + 0.0207),
     ],
     "torso": [
         # radius-to-length ratio
@@ -152,10 +173,14 @@ RATIOS_DERIVED = {
         0.134 / 0.137,  # model pos / calculated pos
     ],
     "foot": [
-        0.01 / np.sqrt((0.1189 / 2) * 0.025),  # half-height model / geometric mean of half-width and half-breadth
-        (0.035 * 2) / (0.0249 + 0.035 * 2 + 0.007 * 2 + 0.01),  # foot2-to-length ratio
-        (0.007 * 2) / (0.0249 + 0.035 * 2 + 0.007 * 2 + 0.01),  # toes1-to-length ratio
-        0.016 / 0.035,  # x-pos foot1 / x-size foot2
+        # half-height model / geometric mean of half-width and half-breadth
+        0.01 / np.sqrt((0.1189 / 2) * 0.025),
+        # foot2-to-length ratio
+        (0.035 * 2) / (0.0249 + 0.035 * 2 + 0.007 * 2 + 0.01),
+        # toes1-to-length ratio
+        (0.007 * 2) / (0.0249 + 0.035 * 2 + 0.007 * 2 + 0.01),
+        # x-pos foot1 / x-size foot2
+        0.016 / 0.035,
     ]
 }
 
@@ -186,16 +211,39 @@ MAPPING_GEOM = {
     ]
 }
 
-# Map geoms to the corresponding motors. Note that below are only 'right' geoms and motors
-# stored. Since MIMo is symmetrical, the 'left' ones will be done via code.
+# Map geoms to the corresponding motors. Note that below are only 'right'
+# geoms and motors stored. Since MIMo is symmetrical, the 'left' ones
+# will be done via code.
 MAPPING_MOTOR = {
     "cb": ["act:hip_bend", "act:hip_twist", "act:hip_lean"],
     "head": ["act:head_swivel", "act:head_tilt", "act:head_tilt_side"],
-    "geom:right_eye1": ["act:right_eye_horizontal", "act:right_eye_vertical", "act:right_eye_torsional"],
-    "right_uarm1": ["act:right_shoulder_horizontal", "act:right_shoulder_abduction", "act:right_shoulder_internal"],
+    "geom:right_eye1": [
+        "act:right_eye_horizontal",
+        "act:right_eye_vertical",
+        "act:right_eye_torsional"
+    ],
+    "right_uarm1": [
+        "act:right_shoulder_horizontal",
+        "act:right_shoulder_abduction",
+        "act:right_shoulder_internal"
+    ],
     "right_larm": ["act:right_elbow"],
-    "geom:right_hand1": ["act:right_wrist_rotation", "act:right_wrist_flexion", "act:right_wrist_ulnar", "act:right_fingers"],
-    "geom:right_upper_leg1": ["act:right_hip_flex", "act:right_hip_abduction", "act:right_hip_rotation"],
+    "geom:right_hand1": [
+        "act:right_wrist_rotation",
+        "act:right_wrist_flexion",
+        "act:right_wrist_ulnar",
+        "act:right_fingers"
+    ],
+    "geom:right_upper_leg1": [
+        "act:right_hip_flex",
+        "act:right_hip_abduction",
+        "act:right_hip_rotation"
+    ],
     "geom:right_lower_leg1": ["act:right_knee"],
-    "geom:right_foot2": ["act:right_foot_flexion", "act:right_foot_inversion", "act:right_foot_rotation", "act:right_toes"]
+    "geom:right_foot2": [
+        "act:right_foot_flexion",
+        "act:right_foot_inversion",
+        "act:right_foot_rotation",
+        "act:right_toes",
+    ]
 }
