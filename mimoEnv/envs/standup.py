@@ -22,6 +22,15 @@ import mujoco
 
 from mimoEnv.envs.mimo_env import MIMoEnv, SCENE_DIRECTORY, DEFAULT_PROPRIOCEPTION_PARAMS, DEFAULT_VESTIBULAR_PARAMS
 from mimoActuation.actuation import SpringDamperModel
+from mimoGrowth.growth import adjust_mimo_to_age, delete_growth_scene
+import mimoEnv.utils as mimo_utils
+
+MIMO_AGE = 17.5
+""" The age of MIMo.
+
+:meta hide-value:
+"""
+
 
 STANDUP_XML = os.path.join(SCENE_DIRECTORY, "standup_scene.xml")
 """ Path to the stand up scene.
@@ -88,7 +97,10 @@ class MIMoStandupEnv(MIMoEnv):
                  actuation_model=SpringDamperModel,
                  **kwargs):
 
-        super().__init__(model_path=model_path,
+        # Create a duplicate of the scene where MIMo is aged.
+        model_path_growth = adjust_mimo_to_age(model_path, MIMO_AGE)
+
+        super().__init__(model_path=model_path_growth,
                          initial_qpos=initial_qpos,
                          frame_skip=frame_skip,
                          proprio_params=proprio_params,
@@ -98,26 +110,17 @@ class MIMoStandupEnv(MIMoEnv):
                          actuation_model=actuation_model,
                          goals_in_observation=False,
                          done_active=False,
+                         default_camera_config={"azimuth": 180},
                          **kwargs)
 
-        # === CHANGES BY MILES ===
-
-        # ! IMPORTANT !
-        # Before running any experiment, it is important to change the path
-        # to the MIMo model in the scene so that a model with densities instead
-        # of masses is used. This is crucial so that MIMo will have the correct
-        # mass at any age.
-
-        import mimoEnv.utils as mimo_utils
-        from mimoGrowth.growth import Growth
-
-        MIMO_AGE = 5
-
-        # Let MIMo grow to the specified age.
-        Growth(self.model, self.data).adjust_mimo_to_age(MIMO_AGE)
+        # Update the model.
+        mujoco.mj_forward(self.model, self.data)
 
         # Calculate the distance to the floor and adjust the height of MIMo.
-        distance_to_floor = self.data.body("left_foot").xpos[2] - self.model.geom("geom:left_foot1").size[1]
+        distance_to_floor = (
+            self.data.body("left_foot").xpos[2]
+            - self.model.geom("geom:left_foot1").size[1]
+        )
         qpos = SITTING_POSITION["mimo_location"]
         qpos[2] -= distance_to_floor
         mimo_utils.set_joint_qpos(self.model, self.data, "mimo_location", qpos)
@@ -135,16 +138,19 @@ class MIMoStandupEnv(MIMoEnv):
         self.model.body("crib").pos = [pos_x, 0, pos_z]
 
         # Change the crib size.
-        self.model.geom(self.model.body("crib").geomadr).size = [hand_size[1] * 2, 0.4, 0]
+        new_size = [hand_size[1] * 2, 0.4, 0]
+        self.model.geom(self.model.body("crib").geomadr).size = new_size
 
         # Update the constraints for the fingers.
         const1, const2 = self.model.eq_data[-4], self.model.eq_data[-5]
-        const1[5], const2[5] = finger_pos[2], finger_pos[2]  # todo: improve?
+        const1[5], const2[5] = finger_pos[2], finger_pos[2]
         self.model.eq_data[-4], self.model.eq_data[-5] = const1, const2
 
-        # ========================
+        # Delete the temporary scene files for the growth.
+        delete_growth_scene(model_path_growth)
 
         self.init_crouch_position = self.data.qpos.copy()
+        self.init_head_height = self.data.geom("head").xpos[2]
 
     def compute_reward(self, achieved_goal, desired_goal, info):
         """ Computes the reward.
@@ -240,7 +246,7 @@ class MIMoStandupEnv(MIMoEnv):
         head_radius = self.model.geom("head").size[0]
         crib_height = self.model.body("crib").pos[2]
 
-        return head_radius + crib_height
+        return head_radius + crib_height + 0.02
 
         # ========================
 
@@ -250,4 +256,15 @@ class MIMoStandupEnv(MIMoEnv):
         Returns:
             float: The height of MIMos head.
         """
-        return self.data.body('head').xpos[2]
+        # return self.data.body('head').xpos[2]
+
+        # === CHANGES BY MILES ===
+
+        # Use the relative change in head height compared to the
+        # initial head height.
+        diff = self.data.body('head').xpos[2] - self.init_head_height
+        reward = diff / self.init_head_height
+
+        return reward
+    
+        # ========================
