@@ -43,7 +43,8 @@ import xml.etree.ElementTree as ET
 import numpy as np
 
 
-def adjust_mimo_to_age(path_scene: str, age: float) -> str:
+def adjust_mimo_to_age(path_scene: str, age: float,
+                       use_csa: bool = True) -> str:
     """
     This function creates a temporary duplicate of the provided scene
     where the growth parameters of MIMo are adjusted to the given age.
@@ -71,7 +72,7 @@ def adjust_mimo_to_age(path_scene: str, age: float) -> str:
 
     # Calculate all growth parameters that need to be changed in order
     # to correctly simulate the growth at the given age.
-    growth_params = calc_growth_params(path_scene, age)
+    growth_params = calc_growth_params(path_scene, age, use_csa)
 
     # Create a new scene that contains the updated version of MIMo.
     new_path = create_new_growth_scene(path_scene, growth_params)
@@ -101,7 +102,8 @@ def delete_growth_scene(path_scene: str) -> None:
         os.remove(path)
 
 
-def calc_growth_params(path_scene: str, age: float) -> dict:
+def calc_growth_params(path_scene: str, age: float,
+                       use_csa: bool = True) -> dict:
     """
     This function calculates and returns all relevant growth parameters.
     TNamely, this includes:
@@ -158,7 +160,8 @@ def calc_growth_params(path_scene: str, age: float) -> dict:
 
     # Calculate the gear values for all motors based on the CSA
     # or volume of the body parts.
-    params["motor"] = motor_handler.calc_motor_params(params["geom"], og_vals)
+    params["motor"] = motor_handler.calc_motor_params(
+        params["geom"], og_vals, use_csa)
 
     return params
 

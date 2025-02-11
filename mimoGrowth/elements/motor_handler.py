@@ -4,7 +4,7 @@ from mimoGrowth.constants import MAPPING_MOTOR
 import numpy as np
 
 
-def calc_motor_gear(geoms: dict, og_vals: dict, use_csa: bool = True) -> dict:
+def calc_motor_gear(geoms: dict, og_vals: dict, use_csa: bool) -> dict:
     """..."""
 
     # Iterate over geoms and their corresponding motors.
@@ -36,8 +36,12 @@ def calc_motor_gear(geoms: dict, og_vals: dict, use_csa: bool = True) -> dict:
         # Calculate the gear value for each motor.
         for motor in motors:
 
-            # Get the original gear value.
-            gear_og = og_vals["motor"][motor]["gear"]
+            # Try to get the original gear value if it is within
+            # the current scene/model.
+            try:
+                gear_og = og_vals["motor"][motor]["gear"]
+            except KeyError:
+                continue
 
             # Calculate the ratio based on the original gear
             # and CSA/volume values. Then, calculate the gear value for the
@@ -58,11 +62,11 @@ def calc_motor_gear(geoms: dict, og_vals: dict, use_csa: bool = True) -> dict:
     return gears
 
 
-def calc_motor_params(geoms: dict, og_vals: dict) -> dict:
+def calc_motor_params(geoms: dict, og_vals: dict, use_csa: bool) -> dict:
     """..."""
 
     # Calculate all motor gears based on the calculated
     # geoms and the original model.
-    motor_gears = calc_motor_gear(geoms, og_vals)
+    motor_gears = calc_motor_gear(geoms, og_vals, use_csa)
 
     return motor_gears
