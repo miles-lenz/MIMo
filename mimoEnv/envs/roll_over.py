@@ -1,6 +1,6 @@
-from mimoEnv.envs.mimo_env import MIMoEnv, SCENE_DIRECTORY, DEFAULT_PROPRIOCEPTION_PARAMS, DEFAULT_VESTIBULAR_PARAMS
-from mimoGrowth.growth import Growth
-from mimoGrowth.show import adjust_pos
+from mimoEnv.envs.mimo_env import MIMoEnv, SCENE_DIRECTORY, \
+    DEFAULT_PROPRIOCEPTION_PARAMS, DEFAULT_VESTIBULAR_PARAMS
+from mimoGrowth.growth import adjust_mimo_to_age, delete_growth_scene
 from mimoActuation.actuation import SpringDamperModel
 import mujoco
 import numpy as np
@@ -24,7 +24,10 @@ class MIMoRollOverEnv(MIMoEnv):
                  actuation_model=SpringDamperModel,
                  **kwargs):
 
-        super().__init__(model_path=model_path,
+        # Let MIMo grow.
+        model_growth = adjust_mimo_to_age(model_path, MIMO_AGE)
+
+        super().__init__(model_path=model_growth,
                          initial_qpos=initial_qpos,
                          frame_skip=frame_skip,
                          proprio_params=proprio_params,
@@ -36,17 +39,20 @@ class MIMoRollOverEnv(MIMoEnv):
                          done_active=False,
                          **kwargs)
 
-        # Let MIMo grow to the specified age.
-        Growth(self.model, self.data).adjust_mimo_to_age(MIMO_AGE)
-
         # Bring MIMo into start position.
+        self.model.body("hip").pos = [0, 0, 0.2]
         if TASK == "BELLY_TO_BACK":
-            adjust_pos("prone", self.model, self.data)
+            self.model.body("hip").quat = [0, -0.7071068, 0, 0.7071068]
         else:
-            adjust_pos("supine", self.model, self.data)
+            self.model.body("hip").quat = [0, 0.7071068, 0, 0.7071068]
+        for _ in range(100):
+            mujoco.mj_step(self.model, self.data)
 
         # Store the initial position.
         self.init_position = self.data.qpos.copy()
+
+        # Delete the temporary growth scene.
+        delete_growth_scene(model_growth)
 
     def is_success(self, achieved_goal, desired_goal):
         """..."""
@@ -69,7 +75,8 @@ class MIMoRollOverEnv(MIMoEnv):
         self.set_state(self.init_qpos, self.init_qvel)
 
         qpos = self.init_position.copy()
-        qpos[7:] = qpos[7:] + self.np_random.uniform(low=-0.01, high=0.01, size=len(qpos[7:]))
+        qpos[7:] = qpos[7:] + self.np_random.uniform(
+            low=-0.01, high=0.01, size=len(qpos[7:]))
 
         qvel = np.zeros(self.data.qvel.shape)
 
@@ -93,7 +100,9 @@ class MIMoRollOverEnv(MIMoEnv):
         # This value will be 0 if MIMo lies on the back and it will be
         # 1 when MIMo lies on the belly.
         xmat = self.data.body("hip").xmat.reshape(3, 3)
-        angle = np.arctan2(-xmat[2, 0], np.sqrt(xmat[2, 1] ** 2 + xmat[2, 2] ** 2)) * (180 / np.pi)
+        angle = np.arctan2(
+            -xmat[2, 0], np.sqrt(xmat[2, 1] ** 2 + xmat[2, 2] ** 2))
+        angle *= (180 / np.pi)
         angle_norm = (angle - (-90)) / (90 - (-90))
 
         # Invert the normalized angle depending on the task.
