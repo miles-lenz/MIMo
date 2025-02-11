@@ -33,7 +33,7 @@ def approximate_functions() -> dict:
 def store_original_values(path_scene: str) -> None:
     """..."""
 
-    # ...
+    # Find the model and meta path within the scene.
     xml_scene = ET.parse(path_scene).getroot()
     paths = [inc.attrib["file"] for inc in xml_scene.findall(".//include")]
 
@@ -110,7 +110,3 @@ def prepare_size_for_mujoco(size: list, body_part: str) -> np.array:
         size = np.repeat(size, 5)
 
     return size
-
-
-if __name__ == "__main__":
-    store_original_values()

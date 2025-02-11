@@ -2,8 +2,6 @@
 
 from mimoGrowth.constants import RATIOS_DERIVED as ratios
 from mimoGrowth.constants import MAPPING_GEOM
-import re
-import xml.etree.ElementTree as ElementTree
 import numpy as np
 
 
@@ -19,7 +17,7 @@ def calc_geom_sizes(sizes: dict, extras: dict):
     # Unpack the needed extra values.
     h_hand, len_hand, len_fingers = extras["hand"]
     h_foot, len_foot, len_toes = extras["foot"]
-    len_lleg1, len_lleg2 = extras["lleg"]
+    len_lower_leg1, len_lower_leg2 = extras["lower_leg"]
 
     # Calculate all geom sizes based on the measurement sizes and extras.
     geom_sizes = {
@@ -30,16 +28,20 @@ def calc_geom_sizes(sizes: dict, extras: dict):
         "upper_arm": [sizes["upper_arm"]],
         "lower_arm": [sizes["lower_arm"]],
         "hand": [
-            [sizes["hand"][2], h_hand, len_hand],  # hand1
-            [h_hand + EPSILON * 2, sizes["hand"][2] - EPSILON * 3, 0],  # hand1
-            [sizes["hand"][1], h_hand, len_fingers],  # fingers1
-            [h_hand + EPSILON * 2, sizes["hand"][1] + EPSILON * 2, 0],  # fingers2
+            # hand1
+            [sizes["hand"][2], h_hand, len_hand],
+            # hand2
+            [h_hand + EPSILON * 2, sizes["hand"][2] - EPSILON * 3, 0],
+            # fingers1
+            [sizes["hand"][1], h_hand, len_fingers],
+            # fingers2
+            [h_hand + EPSILON * 2, sizes["hand"][1] + EPSILON * 2, 0],
         ],
         "torso": [],
         "upper_leg": [sizes["upper_leg"]],
         "lower_leg": [
-            [sizes["lower_leg"][0], len_lleg1],  # lower_leg1
-            [sizes["lower_leg"][1], len_lleg2]  # lower_leg2
+            [sizes["lower_leg"][0], len_lower_leg1],  # lower_leg1
+            [sizes["lower_leg"][1], len_lower_leg2]  # lower_leg2
         ],
         "foot": [
             [sizes["foot"][1] - EPSILON, h_foot - EPSILON],  # foot1
@@ -71,7 +73,7 @@ def calc_geom_positions(sizes: dict, extras: dict):
     # Unpack the needed extra values.
     h_hand, len_hand, len_fingers = extras["hand"]
     _, len_foot, len_toes = extras["foot"]
-    len_lleg1, len_lleg2 = extras["lleg"]
+    len_lower_leg1, len_lower_leg2 = extras["lower_leg"]
 
     # Calculate the geom position based on size and extras.
     positions = {
@@ -96,51 +98,31 @@ def calc_geom_positions(sizes: dict, extras: dict):
         ],
         "upper_leg": [[0, 0, -sizes["upper_leg"][1] * ratios["upper_leg"]]],
         "lower_leg": [
-            [0, 0, -len_lleg1],  # lower_leg1
-            [0, 0, (-len_lleg1 * 2 - len_lleg2 - sizes["lower_leg"][1]) * ratios["lower_leg"][1]]  # lower_leg1
+            # lower_leg1
+            [0, 0, -len_lower_leg1],
+            # lower_leg2
+            [
+                0,
+                0,
+                (-len_lower_leg1 * 2 - len_lower_leg2 - sizes["lower_leg"][1])
+                * ratios["lower_leg"][1]
+            ]
         ],
         "foot": [
-            [-len_foot * ratios["foot"][3], 0, 0],  # foot1
-            [len_foot - len_foot * ratios["foot"][3], 0, 0],  # foot2
-            [len_foot + (len_foot - len_foot * ratios["foot"][3]), 0, 0],  # foot3
-            [len_toes, 0, 0],  # toes1
-            [len_toes * 2, 0, 0]  # toes2
+            # foot1
+            [-len_foot * ratios["foot"][3], 0, 0],
+            # foot2
+            [len_foot - len_foot * ratios["foot"][3], 0, 0],
+            # foot3
+            [len_foot + (len_foot - len_foot * ratios["foot"][3]), 0, 0],
+            # toes1
+            [len_toes, 0, 0],
+            # toes2
+            [len_toes * 2, 0, 0]
         ]
     }
 
     return positions
-
-
-def calc_geom_densities():
-    """"..."""
-
-    # Load the model.
-    model = ElementTree.parse('mimoEnv/assets/mimo/MIMo_model.xml')
-
-    # Iterate over all geoms.
-    for geom in model.getroot().findall(".//geom"):
-
-        # Get mass, size and type of the current geom and remove mass from geom.
-        mass = float(geom.attrib.pop("mass"))
-        size = [float(num) for num in re.sub(r'\s+', ' ', geom.attrib["size"]).split(" ")]
-        type_ = geom.attrib["type"]
-
-        # Calculate the density and use formula depending on the type.
-        # Note that sizes sometimes are multiplied with two, since MuJoCo uses half-lengths.
-        if type_ == "box":
-            density = mass / (np.prod(size) * 8)
-        elif type_ == "capsule":
-            density = mass / (np.pi * size[0] ** 2 * size[1] * 2 + (4 / 3) * np.pi * size[0] ** 3)
-        elif type_ == "cylinder":
-            density = mass / (np.pi * size[0] ** 2 * size[1] * 2)
-        elif type_ == "sphere":
-            density = mass / ((4 / 3) * np.pi * size[0] ** 3)
-
-        # Store the density in the geom.
-        geom.set("density", f'{density:.4f}')
-
-    # Save the model.
-    model.write('mimoEnv/assets/mimo/MIMo_model_density.xml', encoding='utf-8', xml_declaration=True)
 
 
 def calc_extras(sizes: dict) -> dict:
@@ -154,13 +136,14 @@ def calc_extras(sizes: dict) -> dict:
     l_hand, hand_breadth, _ = sizes["hand"]
 
     # Compute the hand height based on geometric mean of hand length and
-    # half-breadth since there are no direct height measurements for the hand available.
+    # half-breadth since there are no direct height measurements
+    # for the hand available.
     h_hand = np.sqrt(l_hand * hand_breadth) * ratios["hand"][0]
 
     # ...
     l_hand -= (h_hand + EPSILON * 2) / 2
 
-    # Divide the overall length between the fingers and the acutal 'hand'.
+    # Divide the overall length between the fingers and the actual 'hand'.
     len_hand = l_hand * ratios["hand"][1]
     len_fingers = l_hand * (1 - ratios["hand"][1])
 
@@ -170,7 +153,8 @@ def calc_extras(sizes: dict) -> dict:
     # ===== FOOT =====
 
     # Compute the foot height based on geometric mean of foot length and
-    # foot width since there are no direct height measurements for the foot available.
+    # foot width since there are no direct height measurements
+    # for the foot available.
     h_foot = np.sqrt(np.prod(sizes["foot"])) * ratios["foot"][0]
 
     # Divide the overall foot length between the toes and the actual 'foot'.
@@ -183,19 +167,20 @@ def calc_extras(sizes: dict) -> dict:
     # ===== LOWER LEG =====
 
     # Get the length of the lower leg.
-    len_lleg = sizes["lower_leg"][2]
+    len_lower_leg = sizes["lower_leg"][2]
 
-    # Subtract the foot heigth from the length since the measurements
+    # Subtract the foot height from the length since the measurements
     # from the website include the foot but in the MIMo model we handle
     # lower leg and foot separately.
-    len_lleg -= h_foot
+    len_lower_leg -= h_foot
 
-    # Divide the overall lower leg length into the two parts the MIMo model uses.
-    len_lleg1 = len_lleg * ratios["lower_leg"][0]
-    len_lleg2 = len_lleg * (1 - ratios["lower_leg"][0])
+    # Divide the overall lower leg length into the two parts
+    # the MIMo model uses.
+    len_lower_leg1 = len_lower_leg * ratios["lower_leg"][0]
+    len_lower_leg2 = len_lower_leg * (1 - ratios["lower_leg"][0])
 
     # Store the extras for the lower leg.
-    extras["lleg"] = [len_lleg1, len_lleg2]
+    extras["lower_leg"] = [len_lower_leg1, len_lower_leg2]
 
     return extras
 
@@ -203,18 +188,23 @@ def calc_extras(sizes: dict) -> dict:
 def calc_geom_masses(params, og_vals):
     """..."""
 
+    # Iterate over all geom parameters.
     for geom_name, attributes in params.items():
 
+        # Get type and size of the current geom.
         type_ = og_vals["geom"][geom_name]["type"]
         size = attributes["size"]
 
+        # Calculate the volume based on the type.
         if type_ == "sphere":
             vol = (4 / 3) * np.pi * size[0] ** 3
         elif type_ == "capsule":
-            vol = (4 / 3) * np.pi * size[0] ** 3 + np.pi * size[0] ** 2 * size[1] * 2
+            vol = (4 / 3) * np.pi * size[0] ** 3
+            vol += np.pi * size[0] ** 2 * size[1] * 2
         elif type_ == "box":
             vol = np.prod(size) * 8
 
+        # Calculate and store the mass.
         attributes["mass"] = vol * og_vals["geom"][geom_name]["density"]
 
 
@@ -242,11 +232,7 @@ def calc_geom_params(sizes: dict, original_values: dict) -> dict:
                 size, pos = geom_sizes[body_part][i], geom_pos[body_part][i]
                 params[key] = {"size": size, "pos": pos}
 
-    # ...
+    # Calculate and store the mass of geoms.
     calc_geom_masses(params, original_values)
 
     return params
-
-
-if __name__ == "__main__":
-    calc_geom_densities()

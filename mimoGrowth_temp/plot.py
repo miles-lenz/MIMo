@@ -2,8 +2,10 @@
 
 import mujoco.viewer
 from mimoGrowth.constants import AGE_GROUPS, MEASUREMENTS
-from mimoGrowth.growth import adjust_mimo_to_age, delete_growth_scene
+from mimoGrowth.growth import adjust_mimo_to_age, delete_growth_scene, \
+    calc_growth_params
 from mimoGrowth.elements.motor_handler import calc_motor_gear
+from mimoGrowth.utils import store_original_values
 import re
 import argparse
 import mujoco
@@ -107,10 +109,8 @@ def density():
 def strength():
     """..."""
 
-    # ! This function is broken at the moment. !
-
-    # Load the model.
-    model = mujoco.MjModel.from_xml_path("mimoEnv/assets/growth.xml")
+    # Specify the scene path.
+    path = "mimoEnv/assets/growth.xml"
 
     # Create an evenly spaced interval for the ages.
     ages = np.linspace(1, 21.5, 100)
@@ -119,17 +119,17 @@ def strength():
     csa_avg, vol_avg = [], []
     for age in ages:
 
-        # todo: Get calculated geom values for the current age.
-        # I can get the from elements.geom_handler.py
-        geoms = None
+        # Get original values and growth parameters for the geoms.
+        og_vals = store_original_values(path)
+        geoms = calc_growth_params(path, age)["geom"]
 
         # Calculate CSA and volume values based on the geoms.
-        csa = calc_motor_gear(geoms, model, use_csa=True)
-        vol = calc_motor_gear(geoms, model, use_csa=False)
+        csa = calc_motor_gear(geoms, og_vals, use_csa=True)
+        vol = calc_motor_gear(geoms, og_vals, use_csa=False)
 
         # Compute the average gear value either based on CSA or volume.
-        avg_csa = np.mean([csa[key]["gear"][0] for key in csa.keys()])
-        avg_vol = np.mean([vol[key]["gear"][0] for key in vol.keys()])
+        avg_csa = np.mean([csa[key]["gear"] for key in csa.keys()])
+        avg_vol = np.mean([vol[key]["gear"] for key in vol.keys()])
 
         # Store the averages.
         csa_avg.append(avg_csa)

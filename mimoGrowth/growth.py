@@ -2,17 +2,20 @@
 This module is the entry point for adjusting the age of MIMo.
 
 The basic workflow looks like this:
-- Create a duplicate of the MuJoCo scene where growth parameters are updated.
-- Use this new scene to load the model.
-- Delete the temporary scene.
+- Use the `adjust_mimo_to_age` function to create a temporary duplicate of the
+provided scene where the growth parameters are updated to the given age.
+- Use the returned path to load the model.
+- Delete the temporary scene with the `delete_growth_scene` function.
 
 It is assumed that every MuJoCo scene has two <include> elements.
 One that links to the meta file of MIMo and another one that links
 to the actual model file. Is is important the the words *meta* and
 *model* are within the file names.
 
-The functions `calc_growth_params` and `create_new_growth_scene` should
-not be called directly. They are used within the `adjust_mimo_to_age` function.
+The following functions should not be called directly since they will
+be used by other functions:
+- `calc_growth_params`
+- `create_new_growth_scene`
 
 Example Code:
 ```
@@ -42,8 +45,8 @@ import numpy as np
 
 def adjust_mimo_to_age(path_scene: str, age: float) -> str:
     """
-    This function creates a duplicate of the provided scene where
-    growth parameters are adjusted to the given age.
+    This function creates a temporary duplicate of the provided scene
+    where the growth parameters of MIMo are adjusted to the given age.
 
     Arguments:
         path_scene (str): The path to the MuJoCo scene.
@@ -66,11 +69,11 @@ def adjust_mimo_to_age(path_scene: str, age: float) -> str:
         warning = f"The Age'{age}' is invalid. Must be between 1 and 21.5"
         raise ValueError(warning)
 
-    # Calculate all parameters that need to be changed in order
+    # Calculate all growth parameters that need to be changed in order
     # to correctly simulate the growth at the given age.
     growth_params = calc_growth_params(path_scene, age)
 
-    # Apply the calculated parameters to the actual model of MIMo.
+    # Create a new scene that contains the updated version of MIMo.
     new_path = create_new_growth_scene(path_scene, growth_params)
 
     return new_path
@@ -101,7 +104,7 @@ def delete_growth_scene(path_scene: str) -> None:
 def calc_growth_params(path_scene: str, age: float) -> dict:
     """
     This function calculates and returns all relevant growth parameters.
-    This includes:
+    TNamely, this includes:
     - Position, size and mass of geoms.
     - Position of bodies.
     - Gear values of motors.
@@ -114,14 +117,14 @@ def calc_growth_params(path_scene: str, age: float) -> dict:
         dict: All relevant growth parameters.
     """
 
-    # Store all relevant parameters so they can be
-    # applied to the model later.
+    # Store all relevant parameters so they can be used later.
     params = {"geom": {}, "body": {}, "motor": {}}
 
     # Approximate growth functions for every body part.
     growth_functions = utils.approximate_functions()
 
-    # ...
+    # Store relevant values from the original MIMo model.
+    # They will be used for calculations later on.
     og_vals = utils.store_original_values(path_scene)
 
     # Iterate over all body parts and their associated growth
@@ -145,16 +148,16 @@ def calc_growth_params(path_scene: str, age: float) -> dict:
         # Store the size.
         sizes[body_part] = size
 
-    # Calculate size and position for all geoms based on the
+    # Calculate size, position and mass for all geoms based on the
     # estimated body sizes from the measurements.
     params["geom"] = geom_handler.calc_geom_params(sizes, og_vals)
 
-    # Calculate position vectors for all bodies based on the
+    # Calculate position for all bodies based on the
     # size/position of geoms.
     params["body"] = body_handler.calc_body_params(params["geom"])
 
-    # Calculate the correct gear values for all motors based on the CSA
-    # of the body parts.
+    # Calculate the gear values for all motors based on the CSA
+    # or volume of the body parts.
     params["motor"] = motor_handler.calc_motor_params(params["geom"], og_vals)
 
     return params
@@ -167,7 +170,7 @@ def create_new_growth_scene(path_scene: str, growth_params: dict) -> None:
     will have been adjusted to the specified age.
 
     These new files use the same name with the additional suffix '_temp' and
-    will be stored in the same folders.
+    will be stored in the same folders as the original files..
 
     Arguments:
         path_scene (str): The path to the MuJoCo scene.

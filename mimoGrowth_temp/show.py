@@ -1,6 +1,7 @@
 """..."""
 
-from mimoGrowth.growth import Growth
+from mimoGrowth.growth import adjust_mimo_to_age, delete_growth_scene, \
+    calc_growth_params
 import mimoEnv.utils as mimo_utils
 import time
 import argparse
@@ -12,7 +13,7 @@ import numpy as np
 import xml.etree.ElementTree as ET
 
 
-def adjust_pos(pos, model, data):
+def adjust_pos(pos, model, data) -> None:
     """..."""
 
     # Adjust MIMo to a standing position by calculating his height
@@ -80,8 +81,27 @@ def adjust_pos(pos, model, data):
                 mimo_utils.set_joint_qpos(model, data, name, val)
 
 
-def growth():
+def update_mimo(model, data, growth_params):
     """..."""
+
+    # Iterate over all geoms and adjust their size/position.
+    for geom_name, params in growth_params["geom"].items():
+        model.geom_size[model.geom(geom_name).id] = params["size"]
+        model.geom(geom_name).pos = params["pos"]
+
+    # Iterate over all bodies and adjust their position.
+    for body_name, params in growth_params["body"].items():
+        model.body(body_name).pos = params["pos"]
+
+    # Update the model state.
+    mujoco.mj_forward(model, data)
+
+
+def growth() -> None:
+    """..."""
+
+    # Set the scene path.
+    path = "mimoEnv/assets/growth.xml"
 
     # Use a state to pause and reset the growth of MIMo.
     state = {"paused": True, "reset": False}
@@ -94,13 +114,13 @@ def growth():
             state["reset"] = True
 
     # Load the model.
-    model = mujoco.MjModel.from_xml_path("mimoEnv/assets/growth.xml")
+    model = mujoco.MjModel.from_xml_path(path)
     data = mujoco.MjData(model)
 
     # Add growth to the model and set the starting age to one month.
     age_months = 1
-    model_with_growth = Growth(model, data)
-    model_with_growth.adjust_mimo_to_age(age_months)
+    growth_params = calc_growth_params(path, age_months)
+    update_mimo(model, data, growth_params)
     adjust_pos("stand", model, data)
 
     # Specify which stages of age the reference cube should display.
@@ -114,10 +134,11 @@ def growth():
         mat_age_cube[age] = model.material(f"age_{age}").id
 
     # Launch the MuJoCo viewer.
-    with mujoco.viewer.launch_passive(model, data, key_callback=key_callback) as viewer:
+    args = {"model": model, "data": data, "key_callback": key_callback}
+    with mujoco.viewer.launch_passive(**args) as viewer:
         while viewer.is_running():
 
-            # Perform a mujoco step and sycn the viewer.
+            # Perform a mujoco step and sync the viewer.
             mujoco.mj_forward(model, data)
             viewer.sync()
 
@@ -127,7 +148,8 @@ def growth():
             # Reset the model if wanted.
             if state["reset"]:
                 age_months = 1
-                model_with_growth.adjust_mimo_to_age(age_months)
+                growth_params = calc_growth_params(path, age_months)
+                update_mimo(model, data, growth_params)
                 adjust_pos("stand", model, data)
                 state["reset"], state["paused"] = False, True
                 model.geom("ref_age").matid = mat_age_cube[1]
@@ -139,7 +161,8 @@ def growth():
 
             # Let the model grow.
             age_months = np.round(age_months + 0.05, 2)
-            model_with_growth.adjust_mimo_to_age(age_months)
+            growth_params = calc_growth_params(path, age_months)
+            update_mimo(model, data, growth_params)
             adjust_pos("stand", model, data)
 
             # Adjust the material of the age cube if the next age is reached.
@@ -147,18 +170,20 @@ def growth():
                 model.geom("ref_age").matid = mat_age_cube[age_months]
 
 
-def multiple_mimos():
+def multiple_mimos() -> None:
     """
     Note that this function may affect the original behavior of MIMo.
     Therefore, this method is intended only for asthetic purposes and
     NOT for any RL experiments.
     """
 
+    # ! REDO - This can be way easier
+
     # Declare the ages for the different version of MIMo
     # and the order in which they should appear.
     AGES = [1, 8, 21.5, 15, 3]
 
-    # Decleare some necessary paths.
+    # Declare some necessary paths.
     PATH_SCENE_OG = "mimoEnv/assets/growth.xml"
     PATH_SCENE_TEMP = "mimoEnv/assets/multiple_mimos.xml"
 
@@ -186,7 +211,8 @@ def multiple_mimos():
         # Load the model and let it grow to the current age.
         model = mujoco.MjModel.from_xml_path(PATH_SCENE_OG)
         data = mujoco.MjData(model)
-        Growth(model, data).adjust_mimo_to_age(age)
+        growth_params = calc_growth_params(PATH_SCENE_OG, age)
+        update_mimo(model, data, growth_params)
         adjust_pos("stand", model, data)
 
         # Save the model temporary.
@@ -196,7 +222,8 @@ def multiple_mimos():
 
         # Load the model as an XML file and extract the main <body> element.
         model = ET.parse(path_model).getroot()
-        mo_body = model.find("worldbody").find("body[@name='mimo_location']").find("body")
+        mo_body = model.find("worldbody").find("body[@name='mimo_location']")
+        mo_body = mo_body.find("body")
 
         # Readjust the joint range values.
         for elem in mo_body.iter():
@@ -214,25 +241,37 @@ def multiple_mimos():
                 elem.attrib["name"] = f"{elem.attrib['name']}_{i}"
 
         # Save the mujoco element as an XML file.
-        ET.ElementTree(mo_mujoco).write(path_model, encoding="utf-8", xml_declaration=True)
+        ET.ElementTree(mo_mujoco).write(
+            path_model, encoding="utf-8", xml_declaration=True
+        )
 
         # Load the meta file.
         meta_file = ET.parse("mimoEnv/assets/mimo/MIMo_meta.xml").getroot()
 
+        # Define some valid keys and invalid tags for the meta file.
+        valid_keys = [
+            "name", "joint1", "joint",
+            "site", "geom1", "geom2",
+            "body1", "body2"
+        ]
+        invalid_tags = ["material", "texture"]
+
         # Change any name in the meta file to avoid duplicates.
         for elem in meta_file.iter():
             for key, val in elem.attrib.items():
-                if key in ["name", "joint1", "joint", "site", "geom1", "geom2", "body1", "body2"] and elem.tag not in ["material", "texture"]:
+                if key in valid_keys and elem.tag not in invalid_tags:
                     elem.attrib[key] = f"{val}_{i}"
 
-        # Remove some duplicatess.
+        # Remove some duplicates.
         if i > 0:
             meta_file.remove(meta_file.find("default"))
             meta_file.remove(meta_file.find("asset"))
 
         # Save a temporary meta file.
         meta_temp_path = f"mimoEnv/assets/mimo/MIMo_meta_{i}.xml"
-        ET.ElementTree(meta_file).write(meta_temp_path, encoding="utf-8", xml_declaration=True)
+        ET.ElementTree(meta_file).write(
+            meta_temp_path, encoding="utf-8", xml_declaration=True
+        )
         temp_files.append(meta_temp_path)
 
         # Copy the scene body and change name and position.
@@ -265,7 +304,9 @@ def multiple_mimos():
     sc_worldbody.remove(sc_light)
 
     # Save the temporary scene.
-    ET.ElementTree(scene).write(PATH_SCENE_TEMP, encoding="utf-8", xml_declaration=True)
+    ET.ElementTree(scene).write(
+        PATH_SCENE_TEMP, encoding="utf-8", xml_declaration=True
+    )
 
     # Load the model from the temporary scene.
     model = mujoco.MjModel.from_xml_path(PATH_SCENE_TEMP)
@@ -285,18 +326,22 @@ def multiple_mimos():
             pass
 
 
-def strength_test(action: str = None, pos: str = "stand", age: str = "17.5", active: str = "False"):
+def strength_test(action: str = None, pos: str = "stand",
+                  age: str = "17.5", active: str = "False"):
     """..."""
 
     # Convert arguments to correct types.
     age, active = float(age), eval(active)
 
+    # Create a new model with the correct age.
+    growth_model = adjust_mimo_to_age("mimoEnv/assets/growth.xml", age)
+
     # Load the model.
-    model = mujoco.MjModel.from_xml_path("mimoEnv/assets/growth.xml")
+    model = mujoco.MjModel.from_xml_path(growth_model)
     data = mujoco.MjData(model)
 
-    # Let MIMo grow.
-    Growth(model, data).adjust_mimo_to_age(age)
+    # Delete the temporary growth scene.
+    delete_growth_scene(growth_model)
 
     # Hide the growth references.
     model.body("growth_references").pos = [0, 0, -5]
@@ -320,7 +365,10 @@ def strength_test(action: str = None, pos: str = "stand", age: str = "17.5", act
 
     # Allow an active viewer if not action is set.
     if active and action:
-        print("The parameters 'active' and 'action' can't be set at the same time.")
+        print(
+            "The parameters 'active' and 'action' can't " +
+            "be set at the same time."
+        )
         return
     if active:
         with mujoco.viewer.launch(model, data) as viewer:
@@ -329,7 +377,8 @@ def strength_test(action: str = None, pos: str = "stand", age: str = "17.5", act
         return
 
     # Launch the MuJoCo viewer.
-    with mujoco.viewer.launch_passive(model, data, key_callback=key_callback) as viewer:
+    args = {"model": model, "data": data, "key_callback": key_callback}
+    with mujoco.viewer.launch_passive(**args) as viewer:
         while viewer.is_running():
 
             if not action:
@@ -366,12 +415,16 @@ def strength_test(action: str = None, pos: str = "stand", age: str = "17.5", act
                     elif sit_dir == "right":
                         data.ctrl[2] = -1  # hip_lean (to the left)
                 else:
-                    print("Unknown configuration for 'pos' and 'action'. Nothing happens.")
+                    print(
+                        "Unknown configuration for 'pos' and 'action'. " +
+                        "Nothing happens."
+                    )
                 state["run"] += 1
 
             viewer.sync()
 
-            time_until_next_step = model.opt.timestep - (time.time() - step_start)
+            passed_time = (time.time() - step_start)
+            time_until_next_step = model.opt.timestep - passed_time
             if time_until_next_step > 0:
                 time.sleep(time_until_next_step)
 
@@ -385,10 +438,21 @@ if __name__ == "__main__":
         "strength_test": strength_test
     }
 
-    # Create a parser that allows to select the function to execute with additional arguments.
-    parser = argparse.ArgumentParser(description="Run functions from the terminal.")
-    parser.add_argument("function", choices=func_map.keys(), help="The function to call.")
-    parser.add_argument("kwargs", nargs=argparse.REMAINDER, help="Additional keyword arguments.")
+    # Create a parser that allows to select the function to execute
+    # with additional arguments.
+    parser = argparse.ArgumentParser(
+        description="Run functions from the terminal."
+    )
+    parser.add_argument(
+        "function",
+        choices=func_map.keys(),
+        help="The function to call."
+    )
+    parser.add_argument(
+        "kwargs",
+        nargs=argparse.REMAINDER,
+        help="Additional keyword arguments."
+    )
 
     # Store the passed arguments so they can be passed to a function.
     kwargs = {}
