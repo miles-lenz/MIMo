@@ -4,7 +4,6 @@ from mimoGrowth.constants import MEASUREMENT_TYPES, MEASUREMENTS, AGE_GROUPS
 from collections import defaultdict
 import re
 import os
-from scipy.interpolate import CubicSpline
 import numpy as np
 import xml.etree.ElementTree as ET
 
@@ -24,7 +23,7 @@ def approximate_functions() -> dict:
 
             # Approximate and store a cubic spline function based on the
             # current measurements and the corresponding age groups.
-            func = CubicSpline(AGE_GROUPS, meas)
+            func = np.polyfit(AGE_GROUPS, meas, deg=3)
             functions[body_part].append(func)
 
     return functions

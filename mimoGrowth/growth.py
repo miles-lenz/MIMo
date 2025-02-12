@@ -139,7 +139,7 @@ def calc_growth_params(path_scene: str, age: float,
         # body part and store the estimated size.
         size = []
         for growth_func in functions:
-            approx_size = growth_func(age)
+            approx_size = np.polyval(growth_func, age)
             size.append(approx_size)
 
         # Prepare the size for MuJoco and apply a ratio in order to
