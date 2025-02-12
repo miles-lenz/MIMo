@@ -12,7 +12,7 @@ import mujoco
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.offsetbox import AnchoredText as AT
+# from matplotlib.offsetbox import AnchoredText as AT
 from scipy.interpolate import interp1d
 import xml.etree.ElementTree as ElementTree
 
@@ -148,16 +148,7 @@ def strength():
 def growth_comparison():
     """..."""
 
-    # todo: Add fourth plot (weight-for-age).
-
-    # IDEAS
-    # - Mark some key data points.
-
-    # todo: Improve the graphs.
-    # - smooth paper functions (maybe by rounding within func)
-    # - redo the GPT functions above
-
-    # ...
+    # Define some paths.
     main_path = "mimoGrowth_temp/data/"
     table_paths = {
         "weight": [
@@ -171,10 +162,10 @@ def growth_comparison():
         "head_circum": [
             "WHO-Boys-Head-Circumference-for-age.csv",
             "WHO-Girls-Head-Circumference-for-age.csv"
-        ],
+        ]
     }
 
-    # ...
+    # Keep a dictionary to store all relevant values.
     data = {
         "mimo": {
             "weight": [],
@@ -184,7 +175,7 @@ def growth_comparison():
         "WHO": {}
     }
 
-    # ...
+    # Iterate over all age-related WHO tables.
     for param, paths in table_paths.items():
         cols = []
         for path in paths:
@@ -192,7 +183,7 @@ def growth_comparison():
             cols.append(df.M)
         data["WHO"][param] = np.mean(cols, 0)[1:-2]
 
-    # ...
+    # Specify the ages for MIMo and from the WHO data.
     ages_mimo = np.linspace(1, 21.5, 42)
     ages_WHO = df.Month[1:-2]
 
@@ -235,22 +226,20 @@ def growth_comparison():
 
     # Function for creating a subplot.
     def create_subplot(title, y_label, y_mimo, y_WHO):
-        plt.plot(ages_WHO, y_WHO, label="WHO Data", linestyle="--")
+        plt.plot(ages_WHO, y_WHO, label="Real Infant", linestyle="--")
         plt.plot(ages_mimo, y_mimo, label="MIMo")
         plt.title(title)
         plt.xlabel("Age (months)")
         plt.ylabel(y_label)
         plt.legend()
         plt.grid(True, alpha=0.5)
-        print(y_mimo)
-        print(y_WHO)
-        corr = np.corrcoef(y_mimo[::2], y_WHO[:-1])[0, 1]
-        text_box = AT(
-            f"$r$ = {corr:.3f}",
-            frameon=True, loc=4, pad=0.5,
-            prop={"alpha": 1, "fontsize": 12}
-        )
-        plt.gca().add_artist(text_box)
+        # corr = np.corrcoef(y_mimo[::2], y_WHO[:-1])[0, 1]
+        # text_box = AT(
+        #     f"$r$ = {corr:.3f}",
+        #     frameon=True, loc=4, pad=0.5,
+        #     prop={"alpha": 1, "fontsize": 12}
+        # )
+        # plt.gca().add_artist(text_box)
 
     # Plot the weight.
     plt.subplot(2, 1, 1)
