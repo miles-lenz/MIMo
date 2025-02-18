@@ -1,102 +1,102 @@
-"""..."""
+""" This module contains different plotting functions. """
 
 import mujoco.viewer
-from mimoGrowth.constants import AGE_GROUPS, MEASUREMENTS
-from mimoGrowth.growth import adjust_mimo_to_age, delete_growth_scene, \
-    calc_growth_params
-from mimoGrowth.elements.motor_handler import calc_motor_gear
-from mimoGrowth.utils import store_original_values
-import re
+from mimoGrowth.constants import AGE_GROUPS
+from mimoGrowth.growth import adjust_mimo_to_age, delete_growth_scene
+from mimoGrowth.utils import load_measurements, store_base_values, \
+    approximate_growth_functions
 import argparse
+from collections import defaultdict
+import os
 import mujoco
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-# from matplotlib.offsetbox import AnchoredText as AT
-from scipy.interpolate import interp1d
-import xml.etree.ElementTree as ElementTree
-
-# todo: Improve style and consistency of plots.
 
 
-def approximation():
-    """..."""
+def growth_function(body_part: str = "head_circumference") -> None:
+    """
+    This function plots different growth functions with their
+    associated original data points.
 
-    # Idea: Add MSE and LOOCV.
+    Arguments:
+        body_part (str): The body part the growth function belongs to.
+            Default is 'head_circumference'.
+    """
 
-    # Pick a measurement from the constants.py file and add
-    # the correct description of this measurement.
-    measurement = MEASUREMENTS["upper_leg"][0]
-    body_part_descr = "Mid Thigh Circumference"
+    measurements = load_measurements()
 
-    # Create evenly spaced samples based on min and max age.
-    # This will be used to predict measurements between original data points.
     age_samples = np.linspace(min(AGE_GROUPS), max(AGE_GROUPS), 100)
 
-    # Approximate different functions based on the age groups and the body
-    # part measurement. Then, predict values between the original data
-    # using these functions.
-    # Use comments to pick the functions you want to see.
-    predictions = {
-        # "Linear Spline": interp1d(
-        #     AGE_GROUPS, measurement, kind="linear")(age_samples),
-        # "Quadratic Spline": interp1d(
-        #     AGE_GROUPS, measurement, kind="quadratic")(age_samples),
-        "Cubic Spline": interp1d(
-            AGE_GROUPS, measurement, kind="cubic")(age_samples),
-        # "Polynomial Fit (deg=1)": np.polyval(
-        #     np.polyfit(AGE_GROUPS, measurement, deg=1), age_samples),
-        "Polynomial Fit (deg=3)": np.polyval(
-            np.polyfit(AGE_GROUPS, measurement, deg=3), age_samples),
-        # "Polynomial Fit (deg=5)": np.polyval(
-        #     np.polyfit(AGE_GROUPS, measurement, deg=5), age_samples),
-    }
+    func = approximate_growth_functions(measurements)[body_part]
+    pred = np.polyval(func, age_samples)
 
-    # Plot the original data and the approximated function(s).
-    plt.plot(AGE_GROUPS, measurement, "ko", label="Original Data")
-    for title, pred in predictions.items():
-        plt.plot(age_samples, pred, label=title)
-    plt.title(f"Predicting {body_part_descr} by Age")
+    plt.errorbar(
+        AGE_GROUPS[1:-1], measurements[body_part]["mean"],
+        measurements[body_part]["std"],
+        fmt="o", color="black", capsize=5,
+        label="Original Data"
+    )
+    plt.plot(age_samples, pred, color="darkorange", label="MIMo")
+
+    plt.title(f"Predicting Growth of {body_part} by Age")
     plt.xlabel("Age (Months)")
-    plt.ylabel(f"{body_part_descr} (cm)")
+    plt.ylabel("Size (Centimeter)")
     plt.legend()
+    plt.grid(True, alpha=0.5)
     plt.show()
 
 
-def density():
+def multiple_functions() -> None:
     """..."""
 
-    # Load the MIMo model.
-    model = ElementTree.parse("mimoEnv/assets/mimo/MIMo_model.xml").getroot()
+    body_parts_to_plot = [
+        # "head_circumference",
+        "mid_thigh_circumference",
+        "foot_breadth",
+        "knee_sole_length",
+        "hip_breadth",
+        "hand_length",
+        "calf_circumference"
+    ]
 
-    # Store geom names and their density to plot them later.
+    measurements = load_measurements()
+    age_samples = np.linspace(min(AGE_GROUPS), max(AGE_GROUPS), 100)
+
+    colors = [plt.get_cmap("tab10")(i) for i in range(10)]
+
+    for i, body_part in enumerate(body_parts_to_plot):
+        func = approximate_growth_functions(measurements)[body_part]
+        pred = np.polyval(func, age_samples)
+        plt.errorbar(
+            AGE_GROUPS[1:-1], measurements[body_part]["mean"],
+            measurements[body_part]["std"],
+            fmt="o", color=colors[i], capsize=5,
+            label=body_part.replace("_", " ").title()
+        )
+        plt.plot(age_samples, pred, color=colors[i])
+
+    plt.title("Comparing Growth of Various Body Parts by Age")
+    plt.xlabel("Age (Months)")
+    plt.ylabel("Size (Centimeter)")
+    plt.legend()
+    plt.grid(True, alpha=0.5)
+    plt.show()
+
+
+def density() -> None:
+    """
+    This functions plots the density of each geom.
+    """
+
+    base_values = store_base_values("mimoEnv/assets/growth.xml")
+
     names, densities = [], []
 
-    # Iterate over all geoms.
-    for geom in model.findall(".//geom"):
+    for name, attributes in base_values["geom"].items():
+        names.append(name.replace("geom:", ""))
+        densities.append(attributes["density"])
 
-        # Get mass and size.
-        mass = float(geom.attrib.pop("mass"))
-        size = re.sub(r"\s+", " ", geom.attrib["size"]).split(" ")
-        size = [float(num) for num in size]
-
-        # Calculate density based on the type of the geom.
-        type_ = geom.attrib["type"]
-        if type_ == "box":
-            density = mass / (np.prod(size) * 8)
-        elif type_ == "capsule":
-            vol_cylinder = np.pi * size[0] ** 2 * size[1] * 2
-            density = mass / (vol_cylinder + (4 / 3) * np.pi * size[0] ** 3)
-        elif type_ == "cylinder":
-            density = mass / (np.pi * size[0] ** 2 * size[1] * 2)
-        elif type_ == "sphere":
-            density = mass / ((4 / 3) * np.pi * size[0] ** 3)
-
-        # Store name and density.
-        names.append(geom.attrib["name"].replace("geom:", ""))
-        densities.append(int(density))
-
-    # Plot the densities.
     plt.bar(names, densities, edgecolor="k")
     plt.title("Density of Every Geom")
     plt.xlabel("Geom")
@@ -106,106 +106,47 @@ def density():
     plt.show()
 
 
-def strength():
-    """..."""
+def comparison() -> None:
+    """
+    This function will compare weight, height and head circumference
+    of MIMo to real infant data from the WHO.
 
-    # Specify the scene path.
-    path = "mimoEnv/assets/growth.xml"
+    Use this link for more information:
+    https://www.cdc.gov/growthcharts/who-growth-charts.htm
+    """
 
-    # Create an evenly spaced interval for the ages.
-    ages = np.linspace(1, 21.5, 100)
+    data = {"mimo": defaultdict(list), "WHO": {}}
 
-    # Iterate over all ages.
-    csa_avg, vol_avg = [], []
-    for age in ages:
+    path = "mimoGrowth_temp/growth_charts/"
+    for dirpath, _, filenames in os.walk(path):
 
-        # Get original values and growth parameters for the geoms.
-        og_vals = store_original_values(path)
-        geoms = calc_growth_params(path, age)["geom"]
+        if filenames == []:
+            continue
 
-        # Calculate CSA and volume values based on the geoms.
-        csa = calc_motor_gear(geoms, og_vals, use_csa=True)
-        vol = calc_motor_gear(geoms, og_vals, use_csa=False)
+        dfs = []
+        for path in filenames:
+            full_path = os.path.join(dirpath, path)
+            dfs.append(pd.read_csv(full_path))
+        df = sum(dfs) / len(dfs)
 
-        # Compute the average gear value either based on CSA or volume.
-        avg_csa = np.mean([csa[key]["gear"] for key in csa.keys()])
-        avg_vol = np.mean([vol[key]["gear"] for key in vol.keys()])
+        key = dirpath.split("/")[-1]
+        data["WHO"][key] = df
 
-        # Store the averages.
-        csa_avg.append(avg_csa)
-        vol_avg.append(avg_vol)
+    age_range = list(range(0, 25))
 
-    # Plot the average gear values based on the age.
-    plt.plot(ages, csa_avg, label="CSA")
-    plt.plot(ages, vol_avg, label="Volume")
-    plt.title("Average Gear Value by Age")
-    plt.xlabel("Age (months)")
-    plt.ylabel("Average Gear Value")
-    plt.legend()
-    plt.show()
+    for i, age in enumerate(age_range):
 
+        print(f"{(i / len(age_range) * 100):.2f}%", end="\r")
 
-def growth_comparison():
-    """..."""
+        growth_scene = adjust_mimo_to_age(age, "mimoEnv/assets/growth.xml")
 
-    # Define some paths.
-    main_path = "mimoGrowth_temp/data/"
-    table_paths = {
-        "weight": [
-            "WHO-Boys-Weight-for-age.csv",
-            "WHO-Girls-Weight-for-age.csv"
-        ],
-        "height": [
-            "WHO-Boys-Length-for-age.csv",
-            "WHO-Girls-Length-for-age.csv"
-        ],
-        "head_circum": [
-            "WHO-Boys-Head-Circumference-for-age.csv",
-            "WHO-Girls-Head-Circumference-for-age.csv"
-        ]
-    }
-
-    # Keep a dictionary to store all relevant values.
-    data = {
-        "mimo": {
-            "weight": [],
-            "height": [],
-            "head_circum": [],
-        },
-        "WHO": {}
-    }
-
-    # Iterate over all age-related WHO tables.
-    for param, paths in table_paths.items():
-        cols = []
-        for path in paths:
-            df = pd.read_csv(main_path + path)
-            cols.append(df.M)
-        data["WHO"][param] = np.mean(cols, 0)[1:-2]
-
-    # Specify the ages for MIMo and from the WHO data.
-    ages_mimo = np.linspace(1, 21.5, 42)
-    ages_WHO = df.Month[1:-2]
-
-    # Iterate over all ages.
-    for i, age in enumerate(ages_mimo):
-
-        # Print the progress.
-        print(f"{(i / len(ages_mimo) * 100):.2f}%", end="\r")
-
-        # Create the growth scene.
-        growth_scene = adjust_mimo_to_age("mimoEnv/assets/growth.xml", age)
-
-        # Load the model.
         mj_model = mujoco.MjModel.from_xml_path(growth_scene)
         mj_data = mujoco.MjData(mj_model)
         mujoco.mj_forward(mj_model, mj_data)
 
-        # Store the weight of MIMo.
         weight = mj_model.body("hip").subtreemass[0]
         data["mimo"]["weight"].append(weight)
 
-        # Store the height of MIMo.
         head_pos = mj_data.geom("head").xpos
         head_size = mj_model.geom("head").size
         height_head = head_pos[2] + head_size[0]
@@ -214,59 +155,50 @@ def growth_comparison():
         height = (height_head - height_foot) * 100
         data["mimo"]["height"].append(height)
 
-        # Store the head circumference of MIMo.
         head_circum = mj_model.geom("head").size[0] * 2 * np.pi * 100
-        data["mimo"]["head_circum"].append(head_circum)
+        data["mimo"]["head_circumference"].append(head_circum)
 
-        # Delete the scene.
         delete_growth_scene(growth_scene)
 
-    # Print the progress.
     print("100.0%")
 
-    # Function for creating a subplot.
-    def create_subplot(title, y_label, y_mimo, y_WHO):
-        plt.plot(ages_WHO, y_WHO, label="Real Infant", linestyle="--")
-        plt.plot(ages_mimo, y_mimo, label="MIMo")
-        plt.title(title)
+    def create_subplot(key, y_label):
+        plt.plot(
+            age_range, data["mimo"][key],
+            color="darkorange",
+            label="MIMo"
+        )
+        plt.errorbar(
+            age_range, data["WHO"][key]["M"].tolist(),
+            data["WHO"][key]["M"] * data["WHO"][key]["S"],
+            color="black", linestyle="--", capsize=3,
+            label="Real Infant"
+        )
+        plt.fill_between(
+            age_range, data["WHO"][key]["5th"], data["WHO"][key]["95th"],
+            color='gray', alpha=0.3,
+            label="5th - 95th Percentile"
+        )
+        plt.fill_between(
+            age_range, data["WHO"][key]["10th"], data["WHO"][key]["90th"],
+            color='gray', alpha=0.5,
+            label="10th - 90th Percentile"
+        )
         plt.xlabel("Age (months)")
         plt.ylabel(y_label)
-        plt.legend()
+        plt.title(key.replace("_", " ").title())
         plt.grid(True, alpha=0.5)
-        # corr = np.corrcoef(y_mimo[::2], y_WHO[:-1])[0, 1]
-        # text_box = AT(
-        #     f"$r$ = {corr:.3f}",
-        #     frameon=True, loc=4, pad=0.5,
-        #     prop={"alpha": 1, "fontsize": 12}
-        # )
-        # plt.gca().add_artist(text_box)
+        plt.legend()
 
-    # Plot the weight.
     plt.subplot(2, 1, 1)
-    create_subplot(
-        "Weight", "Weight (kg)",
-        data["mimo"]["weight"],
-        data["WHO"]["weight"],
-    )
+    create_subplot("weight", "Weight (kg)")
 
-    # Plot the height.
     plt.subplot(2, 2, 3)
-    create_subplot(
-        "Height", "Height (cm)",
-        data["mimo"]["height"],
-        data["WHO"]["height"],
-    )
+    create_subplot("height", "Height (cm)")
 
-    # Plot the head circumference.
     plt.subplot(2, 2, 4)
-    create_subplot(
-        "Head Circumference",
-        "Head Circumference (cm)",
-        data["mimo"]["head_circum"],
-        data["WHO"]["head_circum"],
-    )
+    create_subplot("head_circumference", "Weight (kg)")
 
-    # Show the final graph.
     plt.suptitle(
         'Comparison of Growth Parameters between MIMo and Real Infant Data',
         fontsize=16, fontweight="bold"
@@ -276,16 +208,13 @@ def growth_comparison():
 
 if __name__ == "__main__":
 
-    # Create a mapping from keywords to functions.
     func_map = {
-        "approximation": approximation,
+        "growth_function": growth_function,
+        "multiple_functions": multiple_functions,
         "density": density,
-        "strength": strength,
-        "growth_comparison": growth_comparison,
+        "comparison": comparison,
     }
 
-    # Create a parser that allows to pass the name of the function
-    # to execute in the terminal.
     parser = argparse.ArgumentParser(
         description="Run functions from the terminal."
     )
@@ -295,5 +224,4 @@ if __name__ == "__main__":
         help="The function to call."
     )
 
-    # Call the specified function.
     func_map[parser.parse_args().function]()

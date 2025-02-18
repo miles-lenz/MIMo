@@ -1,22 +1,36 @@
-"""..."""
+"""
+This module manages all calculations related to MuJoCo bodies.
+
+The main function, `calc_body_params`, returns all relevant parameters.
+
+Other functions can be used to retrieve specific parameters as needed.
+"""
 
 from mimoGrowth.constants import RATIOS_MIMO_BODIES as ratios
 import numpy as np
 
 
-def calc_body_positions(geoms: dict) -> dict:
-    """..."""
+def calc_body_positions(params_geoms: dict) -> dict:
+    """
+    This function will calculate the position of every body based on
+    the given geom parameters.
 
-    # Create some shortcuts to make the next part more readable.
-    g_lb, g_cb = geoms["lb"], geoms["cb"]
-    g_ub1, g_ub3 = geoms["ub1"], geoms["ub3"]
-    g_head, g_hand = geoms["head"], geoms["geom:right_hand1"]
-    g_u_arm, g_l_arm = geoms["left_uarm1"], geoms["left_larm"]
-    g_u_leg = geoms["geom:right_upper_leg1"]
-    g_l_leg1 = geoms["geom:left_lower_leg1"]
-    g_l_leg2, g_foot = geoms["geom:left_lower_leg2"], geoms["geom:left_foot3"]
+    Arguments:
+        params_geoms (dict): All relevant geom parameters.
 
-    # Calculate all body positions based on the geom sizes and/or positions.
+    Returns:
+        dict: The position of every body.
+    """
+
+    g_lb, g_cb = params_geoms["lb"], params_geoms["cb"]
+    g_ub1, g_ub3 = params_geoms["ub1"], params_geoms["ub3"]
+    g_head, g_hand = params_geoms["head"], params_geoms["geom:right_hand1"]
+    g_u_arm, g_l_arm = params_geoms["left_uarm1"], params_geoms["left_larm"]
+    g_u_leg = params_geoms["geom:right_upper_leg1"]
+    g_l_leg1 = params_geoms["geom:left_lower_leg1"]
+    g_l_leg2 = params_geoms["geom:left_lower_leg2"]
+    g_foot = params_geoms["geom:left_foot3"]
+
     hip = [0, 0, 0]
     lower_body = [
         0.002,
@@ -61,9 +75,6 @@ def calc_body_positions(geoms: dict) -> dict:
     foot = [0, 0, (g_l_leg1["pos"][2] + g_l_leg2["pos"][2]) * ratios["foot"]]
     toes = [g_foot["pos"][0], 0, 0]
 
-    # Store all calculated position with their correct body names.
-    # Sometimes it is necessary to change the sign within a vector since some
-    # body parts need to be left and others should be on the right.
     positions = [
         (["hip"], hip),
         (["lower_body"], lower_body),
@@ -85,14 +96,20 @@ def calc_body_positions(geoms: dict) -> dict:
     return positions
 
 
-def calc_body_params(geoms: dict) -> dict:
-    """..."""
+def calc_body_params(params_geoms: dict) -> dict:
+    """
+    This function calculates all relevant body parameters based on the
+    geom parameters for the given age.
 
-    # Calculate all body positions and masses based on the calculated
-    # geoms and the original model.
-    body_positions = calc_body_positions(geoms)
+    Arguments:
+        params_geoms (dict): All relevant geom parameters.
 
-    # Map the position and mass vectors to the correct body names.
+    Returns:
+        dict: All relevant body parameters. Can be accessed via body name.
+    """
+
+    body_positions = calc_body_positions(params_geoms)
+
     params = {}
     for body_names, pos in body_positions:
         for name in body_names:

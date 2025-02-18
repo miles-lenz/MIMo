@@ -1,111 +1,252 @@
-"""..."""
+""" This module store utility and helper functions. """
 
-from mimoGrowth.constants import MEASUREMENT_TYPES, MEASUREMENTS, AGE_GROUPS
-from collections import defaultdict
+from mimoGrowth.constants import AGE_GROUPS, RATIOS_MIMO_GEOMS
 import re
 import os
 import numpy as np
+import pandas as pd
 import xml.etree.ElementTree as ET
 
 
-def approximate_functions() -> dict:
-    """..."""
+def load_measurements() -> dict:
+    """
+    This function loads and returns relevant data from the measurements folder.
+    A single measurement list matches the length of the age list in the
+    constant.py file.
 
-    functions = defaultdict(list)
+    The original measurements can be found on the following website:
+    https://math.nist.gov/~SRessler/anthrokids/
 
-    # Iterate over all body parts and their associated measurements.
-    for body_part, measurements in MEASUREMENTS.items():
+    Returns:
+        dict: Every key-value pair describes one body part and its growth.
+    """
 
-        # Iterate over all measurements for the current body part.
-        # Note that some body parts have multiple measurements e.g. the
-        # upper arm has a circumference and a length.
-        for meas in measurements:
+    path_dir = "mimoGrowth/measurements/"
 
-            # Approximate and store a cubic spline function based on the
-            # current measurements and the corresponding age groups.
-            func = np.polyfit(AGE_GROUPS, meas, deg=3)
-            functions[body_part].append(func)
+    measurements = {}
+    for file_name in next(os.walk(path_dir))[2]:
+
+        df = pd.read_csv(path_dir + file_name)
+        last_row = df.index.stop - 1
+
+        measurements[file_name[:-4]] = {
+            "mean": df.MEAN.to_list(),
+            "std": df["S.D."].tolist(),
+            "0": [df["MEAN"][0] - df["S.D."][0]],
+            "24": [df["MEAN"][last_row] + df["S.D."][last_row]],
+        }
+
+    return measurements
+
+
+def approximate_growth_functions(measurements: dict):
+    """
+    This function approximates a growth functions for each body part based
+    on the measurements.
+
+    Arguments:
+        measurements (dict): The measurements for all body parts.
+
+    Returns:
+        dict: A growth function for each body part.
+    """
+
+    functions = {}
+    for body_part, meas in measurements.items():
+        x = AGE_GROUPS
+        y = meas["0"] + meas["mean"] + meas["24"]
+        functions[body_part] = np.polyfit(x, y, deg=3)
 
     return functions
 
 
-def store_original_values(path_scene: str) -> None:
-    """..."""
+def estimate_sizes(measurements: dict, age: float) -> dict:
+    """
+    This function uses the measurements from the website to approximate a
+    growth function for each body part. These functions are then used to
+    estimate the size of all body parts at the given age.
 
-    # Find the model and meta path within the scene.
-    xml_scene = ET.parse(path_scene).getroot()
-    paths = [inc.attrib["file"] for inc in xml_scene.findall(".//include")]
+    Arguments:
+        measurements (dict): The measurements for all body parts.
+        age (float): The age of MIMo.
 
-    # Load the model and the meta file.
-    dir_name = os.path.dirname(path_scene) + "/"
-    model = ET.parse(dir_name + [path for path in paths if "model" in path][0])
-    meta = ET.parse(dir_name + [path for path in paths if "meta" in path][0])
+    Returns:
+        dict: The predicted size for every body part at the given age.
+    """
 
-    # Keep a dictionary to store all values.
-    og_values = {"geom": {}, "motor": {}}
+    functions = approximate_growth_functions(measurements)
 
-    # Iterate over all geoms.
-    for geom in model.getroot().findall(".//geom"):
+    sizes = {}
+    for body_part, func in functions.items():
+        sizes[body_part] = np.polyval(func, age)
 
-        # Get size, mass and type and convert them to the
-        # appropriate datatypes.
-        size = re.sub(r"\s+", " ", geom.attrib["size"]).strip()
-        size = np.array(size.split(" "), dtype=float)
-        mass = float(geom.attrib["mass"])
+    return sizes
+
+
+def format_sizes(sizes: dict) -> dict:
+    """
+    This function will format the estimated sizes.
+    Specifically, this means:
+    - Converting units to MuJoCo standards
+    - Group measurements so they can be associated with a geom
+    - Applying ratios
+
+    This list describes the high-level body parts and the
+    corresponding measurements:
+    - head      : Head Circumference
+    - upper_arm : [Upper Arm Circumference, Shoulder Elbow Length]
+    - lower_arm : [Forearm Circumference, Elbow Hand Length - Hand Length]
+    - hand      : [Hand Length, Hand Breadth, Maximum Fist Breadth]
+    - torso     : Hip Breadth
+    - upper_leg : [Mid Thigh Circumference, Rump Knee Length]
+    - lower_leg : [Calf Circumference, Ankle Circumference, Knee Sole Length]
+    - foot      : [Foot Length, Foot Breadth]
+
+    Arguments:
+        sizes (dict): The estimated sizes for all body parts.
+
+    Returns:
+        dict: The formatted sizes for all body parts.
+    """
+
+    # Use meter as unit and convert circumference to radius or
+    # split lengths in half. MuJoCo expects these units.
+    for body_part, meas in sizes.items():
+        sizes[body_part] = np.array(meas) / 100
+        sizes[body_part] /= 2 * np.pi if "circum" in body_part else 2
+
+    # Group the measurements. This will make later calculations easier.
+    # Notice that for some body parts we need to subtract the radius from the
+    # length since MuJoCo expects the half-length only of the cylinder part.
+    sizes = {
+        "head": [sizes["head_circumference"]],
+        "upper_arm": [
+            sizes["upper_arm_circumference"],
+            sizes["shoulder_elbow_length"] - sizes["upper_arm_circumference"]
+        ],
+        "lower_arm": [
+            sizes["forearm_circumference"],
+            (
+                sizes["elbow_hand_length"] -
+                sizes["hand_length"] -
+                sizes["forearm_circumference"]
+            )
+        ],
+        "hand": [
+            sizes["hand_length"],
+            sizes["hand_breadth"],
+            sizes["maximum_fist_breadth"]
+        ],
+        # For the torso we need to duplicate the size by five
+        # since the whole torso is made up of five capsules.
+        # Each capsule will be tweaked a little by the ratio later.
+        "torso": np.repeat(sizes["hip_breadth"], 5),
+        "upper_leg": [
+            sizes["mid_thigh_circumference"],
+            sizes["rump_knee_length"] - sizes["mid_thigh_circumference"]
+        ],
+        "lower_leg": [
+            sizes["calf_circumference"],
+            sizes["ankle_circumference"],
+            (
+                sizes["knee_sole_length"] -
+                sizes["calf_circumference"] / 2 -
+                sizes["ankle_circumference"] / 2
+            )
+        ],
+        "foot": [sizes["foot_length"], sizes["foot_breadth"]]
+    }
+
+    for body_part in sizes.keys():
+        sizes[body_part] *= np.array(RATIOS_MIMO_GEOMS[body_part])
+
+    return sizes
+
+
+def calc_volume(size: list, geom_type: str) -> float:
+    """
+    This function returns the volume based on the size and type of a geom.
+
+    Arguments:
+        size (list): The size of the geom.
+        geom_type (str): The type of the geom. This needs to be one of the
+        following: 'sphere', 'capsule' or 'box'
+
+    Returns:
+        float: The volume of the geom.
+
+    Raises:
+        ValueError: If the geom type is invalid.
+    """
+
+    if geom_type == "sphere":
+        vol = (4 / 3) * np.pi * size[0] ** 3
+
+    elif geom_type == "capsule":
+        vol = (4 / 3) * np.pi * size[0] ** 3
+        vol += np.pi * size[0] ** 2 * size[1] * 2
+
+    elif geom_type == "box":
+        vol = np.prod(size) * 8
+
+    elif geom_type == "cylinder":
+        vol = np.pi * size[0] ** 2 * size[1] * 2
+
+    else:
+        raise ValueError(f"Unknown geom type '{geom_type}'.")
+
+    return vol
+
+
+def store_base_values(path_scene: str) -> None:
+    """
+    This function stores relevant values of the original MIMo model before
+    the age is changed.
+
+    Arguments:
+        path_scene (str): The path to the MuJoCo scene.
+
+    Returns:
+        dict: All relevant values of MIMo.
+    """
+
+    base_values = {"geom": {}, "motor": {}}
+
+    tree_scene = ET.parse(path_scene)
+
+    includes = {}
+    for include in tree_scene.getroot().findall(".//include"):
+        key = "model" if "model" in include.attrib["file"] else "meta"
+        includes[key] = include
+
+    path_dir = os.path.dirname(path_scene)
+    path_model = os.path.join(path_dir, includes["model"].attrib["file"])
+    path_meta = os.path.join(path_dir, includes["meta"].attrib["file"])
+
+    tree_model = ET.parse(path_model)
+    tree_meta = ET.parse(path_meta)
+
+    for geom in tree_model.getroot().findall(".//geom"):
+
         type_ = geom.attrib["type"]
 
-        # Compute the volume based on the type.
-        if type_ == "sphere":
-            vol = (4 / 3) * np.pi * size[0] ** 3
-        elif type_ == "capsule":
-            vol = (4 / 3) * np.pi * size[0] ** 3
-            vol += np.pi * size[0] ** 2 * size[1] * 2
-        elif type_ == "box":
-            vol = np.prod(size) * 8
+        size = re.sub(r"\s+", " ", geom.attrib["size"]).strip()
+        size = np.array(size.split(" "), dtype=float)
 
-        # Calculate the density.
-        density = mass / vol
+        vol = calc_volume(size, type_)
+        density = float(geom.attrib["mass"]) / vol
 
-        # Store all values.
-        og_values["geom"][geom.attrib["name"]] = {
-            "size": size, "mass": mass, "type": type_,
-            "vol": vol, "density": density
+        base_values["geom"][geom.attrib["name"]] = {
+            "type": type_,
+            "size": size,
+            "vol": vol,
+            "density": density,
         }
 
-    # Iterate over all motors.
-    for motor in meta.getroot().find("actuator").findall("motor"):
+    for motor in tree_meta.getroot().find("actuator").findall("motor"):
 
-        # Get and convert the gear value.
-        gear = float(motor.attrib["gear"])
+        base_values["motor"][motor.attrib["name"]] = {
+            "gear": float(motor.attrib["gear"])
+        }
 
-        # Store all values.
-        og_values["motor"][motor.attrib["name"]] = {"gear": gear}
-
-    return og_values
-
-
-def prepare_size_for_mujoco(size: list, body_part: str) -> np.array:
-    """..."""
-
-    # Convert to meters and use a numpy array to make calculations easier.
-    size = np.array(size) / 100
-
-    # Derive radius from circumference or split lengths in half since this
-    # is what MuJoCo expects.
-    for i, size_type in enumerate(MEASUREMENT_TYPES[body_part]):
-        size[i] /= 2 * np.pi if size_type == "circ" else 2
-
-    # For some body parts we need to subtract the radius from the length
-    # since MuJoCo expects the half-length only of the cylinder part.
-    if body_part in ["upper_arm", "lower_arm", "upper_leg"]:
-        size[1] -= size[0]
-    elif body_part == "lower_leg":
-        size[2] -= size[0] / 2 + size[1] / 2
-
-    # For the torso we need to duplicate the size by five
-    # since the whole torso is made up of five capsules.
-    # Each capsule will be tweaked a little by the ratio.
-    if body_part == "torso":
-        size = np.repeat(size, 5)
-
-    return size
+    return base_values

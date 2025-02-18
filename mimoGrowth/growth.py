@@ -35,138 +35,82 @@ delete_growth_scene(growth_scene)
 ```
 """
 
-from mimoGrowth.constants import RATIOS_MIMO_GEOMS
-from mimoGrowth.elements import geom_handler, body_handler, motor_handler
+from mimoGrowth.mujoco.geom_handler import calc_geom_params
+from mimoGrowth.mujoco.body_handler import calc_body_params
+from mimoGrowth.mujoco.motor_handler import calc_motor_params
 import mimoGrowth.utils as utils
 import os
 import xml.etree.ElementTree as ET
 import numpy as np
 
 
-def adjust_mimo_to_age(path_scene: str, age: float,
-                       use_csa: bool = True) -> str:
+def adjust_mimo_to_age(age: float, path_scene: str) -> str:
     """
     This function creates a temporary duplicate of the provided scene
     where the growth parameters of MIMo are adjusted to the given age.
 
     Arguments:
+        age (float): The age of MIMo. Possible values are between 0 and 24.
         path_scene (str): The path to the MuJoCo scene.
-        age (float): The age of MIMo. Possible values are between 1 and 21.5.
 
     Returns:
-        str: The path to the new growth scene. Use this path to load the model.
+        str: The path to the growth scene. Use this path to load the model.
 
     Raises:
         FileNotFoundError: If the scene path is invalid.
         ValueError: If the age is not within the valid interval.
     """
 
-    # Raise an error if the path is invalid.
     if not os.path.exists(path_scene):
         raise FileNotFoundError(f"The path '{path_scene}' does not exist.")
 
-    # Raise an error if the age parameter is invalid.
-    if age < 1 or age > 21.5:
-        warning = f"The Age'{age}' is invalid. Must be between 1 and 21.5"
-        raise ValueError(warning)
+    if age < 0 or age > 24:
+        message = f"The Age'{age}' is invalid. Must be between 0 and 24."
+        raise ValueError(message)
 
-    # Calculate all growth parameters that need to be changed in order
-    # to correctly simulate the growth at the given age.
-    growth_params = calc_growth_params(path_scene, age, use_csa)
+    params = calc_growth_params(age, path_scene)
 
-    # Create a new scene that contains the updated version of MIMo.
-    new_path = create_new_growth_scene(path_scene, growth_params)
+    path_growth_scene = create_growth_scene(params, path_scene)
 
-    return new_path
+    return path_growth_scene
 
 
-def delete_growth_scene(path_scene: str) -> None:
+def calc_growth_params(age: float, path_scene: str) -> dict:
     """
-    This function deletes the temporary growth scene and all
-    associated files like the model and meta file.
-
-    Arguments:
-        path_scene (str): Path to the growth scene which will be deleted.
-    """
-
-    # Get the paths to the MIMo model and meta file.
-    xml_scene = ET.parse(path_scene).getroot()
-    paths = [inc.attrib["file"] for inc in xml_scene.findall(".//include")]
-
-    # Store all paths (including the scene path) in a list.
-    paths = [os.path.join(os.path.dirname(path_scene), path) for path in paths]
-    paths.append(path_scene)
-
-    # Delete scene, model and meta file.
-    for path in paths:
-        os.remove(path)
-
-
-def calc_growth_params(path_scene: str, age: float,
-                       use_csa: bool = True) -> dict:
-    """
-    This function calculates and returns all relevant growth parameters.
-    TNamely, this includes:
+    This function calculates and returns all relevant
+    growth parameters. This includes:
     - Position, size and mass of geoms.
     - Position of bodies.
     - Gear values of motors.
 
     Arguments:
-        path_scene (str): The path to the MuJoCo scene.
         age (float): The age of MIMo.
+        path_scene (str): The path to the MuJoCo scene.
 
     Returns:
         dict: All relevant growth parameters.
     """
 
-    # Store all relevant parameters so they can be used later.
-    params = {"geom": {}, "body": {}, "motor": {}}
+    measurements = utils.load_measurements()
+    approx_sizes = utils.estimate_sizes(measurements, age)
+    approx_sizes = utils.format_sizes(approx_sizes)
 
-    # Approximate growth functions for every body part.
-    growth_functions = utils.approximate_functions()
+    base_values = utils.store_base_values(path_scene)
 
-    # Store relevant values from the original MIMo model.
-    # They will be used for calculations later on.
-    og_vals = utils.store_original_values(path_scene)
+    params_geoms = calc_geom_params(approx_sizes, base_values)
+    params_bodies = calc_body_params(params_geoms)
+    params_motors = calc_motor_params(params_geoms, base_values)
 
-    # Iterate over all body parts and their associated growth
-    # functions. Approximate the size(s) for each body part using
-    # these functions.
-    sizes = {}
-    for body_part, functions in growth_functions.items():
-
-        # Iterate over all growth functions for the current
-        # body part and store the estimated size.
-        size = []
-        for growth_func in functions:
-            approx_size = np.polyval(growth_func, age)
-            size.append(approx_size)
-
-        # Prepare the size for MuJoco and apply a ratio in order to
-        # maintain the little tweaks/changes from the original MIMo model.
-        size = utils.prepare_size_for_mujoco(size, body_part)
-        size *= RATIOS_MIMO_GEOMS[body_part]
-
-        # Store the size.
-        sizes[body_part] = size
-
-    # Calculate size, position and mass for all geoms based on the
-    # estimated body sizes from the measurements.
-    params["geom"] = geom_handler.calc_geom_params(sizes, og_vals)
-
-    # Calculate position for all bodies based on the
-    # size/position of geoms.
-    params["body"] = body_handler.calc_body_params(params["geom"])
-
-    # Calculate the gear values for all motors based on the CSA
-    # or volume of the body parts.
-    params["motor"] = motor_handler.calc_motor_params(
-        params["geom"], og_vals, use_csa)
+    params = {
+        "geom": params_geoms,
+        "body": params_bodies,
+        "motor": params_motors
+    }
 
     return params
 
 
-def create_new_growth_scene(path_scene: str, growth_params: dict) -> None:
+def create_growth_scene(growth_params: dict, path_scene: str) -> None:
     """
     This function will create duplicates of the provided scene and
     the model and meta files of MIMo. Within these duplicates, MIMo
@@ -176,28 +120,25 @@ def create_new_growth_scene(path_scene: str, growth_params: dict) -> None:
     will be stored in the same folders as the original files..
 
     Arguments:
-        path_scene (str): The path to the MuJoCo scene.
         growth_params (dict): The growth parameters.
+        path_scene (str): The path to the MuJoCo scene.
     """
 
-    # Parse the scene.
-    xml_scene = ET.parse(path_scene)
+    tree_scene = ET.parse(path_scene)
 
-    # Get the <include> elements for the model and the meta file.
-    includes = xml_scene.getroot().findall(".//include")
-    include_model = [i for i in includes if "model" in i.attrib["file"]][0]
-    include_meta = [i for i in includes if "meta" in i.attrib["file"]][0]
+    includes = {}
+    for include in tree_scene.getroot().findall(".//include"):
+        key = "model" if "model" in include.attrib["file"] else "meta"
+        includes[key] = include
 
-    # Get the path to model and meta file.
-    dir_name = os.path.dirname(path_scene)
-    path_model = os.path.join(dir_name, include_model.attrib["file"])
-    path_meta = os.path.join(dir_name, include_meta.attrib["file"])
+    path_dir = os.path.dirname(path_scene)
+    path_model = os.path.join(path_dir, includes["model"].attrib["file"])
+    path_meta = os.path.join(path_dir, includes["meta"].attrib["file"])
 
-    # Parse the model and meta file.
-    xml_model, xml_meta = ET.parse(path_model), ET.parse(path_meta)
+    tree_model = ET.parse(path_model)
+    tree_meta = ET.parse(path_meta)
 
-    # Iterate over all <geom> elements in the model.
-    for geom in xml_model.getroot().findall(".//geom"):
+    for geom in tree_model.getroot().findall(".//geom"):
 
         name = geom.attrib["name"]
 
@@ -210,37 +151,51 @@ def create_new_growth_scene(path_scene: str, growth_params: dict) -> None:
         mass = growth_params["geom"][name]["mass"]
         geom.attrib["mass"] = str(mass)
 
-    # Iterate over all <body> elements in the model.
-    for body in xml_model.getroot().findall(".//body"):
+    for body in tree_model.getroot().findall(".//body"):
 
         name = body.attrib["name"]
 
         pos = growth_params["body"][name]["pos"]
         body.attrib["pos"] = " ".join(np.array(pos, dtype=str))
 
-    # Iterate over all <motor> elements within the
-    # <actuator> element in the meta file.
-    for motor in xml_meta.getroot().find("actuator").findall(".//motor"):
+    for motor in tree_meta.getroot().find("actuator").findall(".//motor"):
 
         name = motor.attrib["name"]
 
         gear = growth_params["motor"][name]["gear"]
         motor.attrib["gear"] = str(gear)
 
-    # Define a helper function that creates a new temporary path.
-    def temp_path(path: str) -> str:
+    def temp_path(path):
         return path.replace(".xml", "_temp.xml")
 
-    # Save the updated model and meta file.
-    xml_model.write(temp_path(path_model))
-    xml_meta.write(temp_path(path_meta))
+    tree_model.write(temp_path(path_model))
+    tree_meta.write(temp_path(path_meta))
 
-    # Update the path of the <include> elements in the scene.
-    include_model.attrib["file"] = temp_path(include_model.attrib["file"])
-    include_meta.attrib["file"] = temp_path(include_meta.attrib["file"])
+    for include in includes.values():
+        include.attrib["file"] = temp_path(include.attrib["file"])
 
-    # Save the updated scene.
-    path_new_scene = temp_path(path_scene)
-    xml_scene.write(path_new_scene)
+    path_growth_scene = temp_path(path_scene)
+    tree_scene.write(path_growth_scene)
 
-    return path_new_scene
+    return path_growth_scene
+
+
+def delete_growth_scene(path_scene: str) -> None:
+    """
+    This function deletes the temporary growth scene and all
+    associated files like the model and meta file.
+
+    Arguments:
+        path_scene (str): Path to the growth scene which will be deleted.
+    """
+
+    root_scene = ET.parse(path_scene).getroot()
+
+    for include in root_scene.findall(".//include"):
+
+        path_file = include.attrib["file"]
+        path_file_full = os.path.join(os.path.dirname(path_scene), path_file)
+
+        os.remove(path_file_full)
+
+    os.remove(path_scene)

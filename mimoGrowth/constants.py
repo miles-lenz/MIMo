@@ -1,76 +1,12 @@
-"""
-The measurements can be found on the following website:
-https://math.nist.gov/~SRessler/anthrokids/
-
-All values are provided in centimeter.
-
-The following list shows which measurements I used for which body parts:
-- head      : Head Circumference
-- upper_arm : [Upper Arm Circumference, Shoulder Elbow Length]
-- lower_arm : [Forearm Circumference, Elbow Hand Length - Hand Length]
-- hand      : [Hand Length, Hand Breadth, Maximum Fist Breadth]
-- torso     : Hip Breadth
-- upper_leg : [Mid Thigh Circumference, Rump Knee Length]
-- lower_leg : [Calf Circumference, Ankle Circumference, Knee Sole Length]
-- foot      : [Foot Length, Foot Breadth]
-"""
+""" This module stores all constant values. """
 
 import numpy as np
 
 
-# Store the mean value for the different age groups from the website.
-# They will be needed to approximate a function that can predict sizes by age.
-AGE_GROUPS = [1, 3, 7, 10, 13.5, 17.5, 21.5]
-
-# Store relevant measurements from the website and categorize them by body
-# parts. The docstring provides detailed information on how to find these
-# exact values.
-MEASUREMENTS = {
-    "head": [[38.5, 41.7, 43.9, 45.5, 46.6, 46.8, 47.8]],
-    "upper_arm": [
-        [11.8, 13.0, 14.0, 14.8, 14.5, 14.7, 15.0],
-        [10.9, 12.3, 13.1, 14.5, 14.9, 15.4, 16.2]
-    ],
-    "lower_arm": [
-        [11.8, 13.1, 14.0, 14.3, 14.5, 14.5, 14.8],
-        [
-            14.9 - 6.8, 16.6 - 7.4, 18.0 - 8.0, 19.6 - 8.9,
-            19.9 - 9.2, 20.7 - 9.3, 21.5 - 9.5
-        ]
-    ],
-    "hand": [
-        [6.8, 7.4, 8.0, 8.9, 9.2, 9.3, 9.5],
-        [3.7, 4.1, 4.2, 4.5, 4.6, 4.6, 4.7],
-        [4.2, 4.6, 4.9, 5.1, 5.3, 5.5, 5.5]
-    ],
-    "torso": [[13.2, 14.3, 15.9, 16.6, 16.9, 17.1, 17.1]],
-    "upper_leg": [
-        [16.9, 20.7, 21.2, 23.2, 23.4, 24.4, 24.7],
-        [13.9, 15.9, 17.2, 19.2, 19.9, 21.3, 22.6]
-    ],
-    "foot": [
-        [8.2, 9.1, 10.0, 10.9, 11.7, 11.9, 12.5],
-        [3.6, 4.0, 4.2, 4.7, 4.9, 5.0, 5.2]
-    ],
-    "lower_leg": [
-        [13.7, 15.6, 16.9, 18.1, 18.1, 18.4, 19.0],
-        [10.2, 11.6, 12.3, 12.9, 13.2, 13.3, 13.6],
-        [14.9, 16.5, 17.9, 19.8, 20.8, 21.6, 23.0]
-    ],
-}
-
-# Store the type of all measurements. This will be useful when the
-# measurements are prepared for usage in the MuJoCo model.
-MEASUREMENT_TYPES = {
-    "head": ["circ"],
-    "upper_arm": ["circ", "len"],
-    "lower_arm": ["circ", "len"],
-    "hand": ["len", "len", "len"],
-    "torso": ["len"],
-    "upper_leg": ["circ", "len"],
-    "lower_leg": ["circ", "circ", "len"],
-    "foot": ["len", "len"],
-}
+# Store the mean values for the age groups on the website. Extend this list by
+# adding 0 and 24 months in order to have a cleaner overall range.
+# This list will be needed to approximate the growth functions.
+AGE_GROUPS = [0, 1, 3, 7, 10, 13.5, 17.5, 21.5, 24]
 
 # Store ratios that describe the difference between measurements and the
 # original MIMo model. These ratios will be used to maintain all the small
@@ -184,7 +120,7 @@ RATIOS_DERIVED = {
     ]
 }
 
-# Map the keywords that are used in the measurements to the actual geom
+# Map the keywords for body parts to the actual geom
 # names they are intended for.
 MAPPING_GEOM = {
     "head": ["head", ("geom:left_eye1", "geom:right_eye1")],

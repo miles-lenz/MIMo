@@ -21,6 +21,7 @@
         <texture name="wall" type="2d" builtin="checker" width="100" height="100" rgb1="0.8 0.8 0.8" rgb2="1 1 1" markrgb="1 1 1"/>
         <material name="wall" texture="wall" texrepeat="10 10" texuniform="true" reflectance="0.3"/>
 
+        <texture name="age_0" type="cube" width="512" height="512" filedown="tex/age_ref/0.png" rgb1="0.137 0.137 0.137"/>
         <texture name="age_1" type="cube" width="512" height="512" filedown="tex/age_ref/1.png" rgb1="0.137 0.137 0.137"/>
         <texture name="age_2" type="cube" width="512" height="512" filedown="tex/age_ref/2.png" rgb1="0.137 0.137 0.137"/>
         <texture name="age_3" type="cube" width="512" height="512" filedown="tex/age_ref/3.png" rgb1="0.137 0.137 0.137"/>
@@ -42,6 +43,10 @@
         <texture name="age_19" type="cube" width="512" height="512" filedown="tex/age_ref/19.png" rgb1="0.137 0.137 0.137"/>
         <texture name="age_20" type="cube" width="512" height="512" filedown="tex/age_ref/20.png" rgb1="0.137 0.137 0.137"/>
         <texture name="age_21" type="cube" width="512" height="512" filedown="tex/age_ref/21.png" rgb1="0.137 0.137 0.137"/>
+        <texture name="age_22" type="cube" width="512" height="512" filedown="tex/age_ref/22.png" rgb1="0.137 0.137 0.137"/>
+        <texture name="age_23" type="cube" width="512" height="512" filedown="tex/age_ref/23.png" rgb1="0.137 0.137 0.137"/>
+        <texture name="age_24" type="cube" width="512" height="512" filedown="tex/age_ref/24.png" rgb1="0.137 0.137 0.137"/>
+        <material name="age_0" texture="age_0"/>
         <material name="age_1" texture="age_1"/>
         <material name="age_2" texture="age_2"/>
         <material name="age_3" texture="age_3"/>
@@ -63,6 +68,9 @@
         <material name="age_19" texture="age_19"/>
         <material name="age_20" texture="age_20"/>
         <material name="age_21" texture="age_21"/>
+        <material name="age_22" texture="age_22"/>
+        <material name="age_23" texture="age_23"/>
+        <material name="age_24" texture="age_24"/>
 
     </asset>
 
@@ -83,7 +91,7 @@
         <!-- The following geoms are used as a reference for age/size while MIMo is growing. -->
         <body name="growth_references" pos="0 0 0">
             <geom name="ref_size" type="box" material="wall" size="0.5 0.5 0.01" pos="-0.1 0 0.5" euler="0 90 0"/>
-            <geom name="ref_age" type="box" material="age_1" size="0.05 0.05 0.05" pos="0.05 0.3 0.05" euler="0 0 60"/>
+            <geom name="ref_age" type="box" material="age_0" size="0.05 0.05 0.05" pos="0.05 0.3 0.05" euler="0 0 60"/>
         </body>
 
     </worldbody>
