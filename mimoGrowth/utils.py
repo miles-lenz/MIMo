@@ -21,12 +21,13 @@ def load_measurements() -> dict:
         dict: Every key-value pair describes one body part and its growth.
     """
 
-    path_dir = "mimoGrowth/measurements/"
+    path_script = os.path.dirname(os.path.realpath(__file__))
+    path_meas = os.path.join(path_script, "measurements/")
 
     measurements = {}
-    for file_name in next(os.walk(path_dir))[2]:
+    for file_name in next(os.walk(path_meas))[2]:
 
-        df = pd.read_csv(path_dir + file_name)
+        df = pd.read_csv(path_meas + file_name)
         last_row = df.index.stop - 1
 
         measurements[file_name[:-4]] = {

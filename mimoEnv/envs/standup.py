@@ -22,14 +22,7 @@ import mujoco
 
 from mimoEnv.envs.mimo_env import MIMoEnv, SCENE_DIRECTORY, DEFAULT_PROPRIOCEPTION_PARAMS, DEFAULT_VESTIBULAR_PARAMS
 from mimoActuation.actuation import SpringDamperModel
-from mimoGrowth.growth import adjust_mimo_to_age, delete_growth_scene
 import mimoEnv.utils as mimo_utils
-
-MIMO_AGE = 17.5
-""" The age of MIMo.
-
-:meta hide-value:
-"""
 
 
 STANDUP_XML = os.path.join(SCENE_DIRECTORY, "standup_scene.xml")
@@ -90,6 +83,7 @@ class MIMoStandupEnv(MIMoEnv):
                  model_path=STANDUP_XML,
                  initial_qpos=SITTING_POSITION,
                  frame_skip=2,
+                 age=2,
                  proprio_params=DEFAULT_PROPRIOCEPTION_PARAMS,
                  touch_params=None,
                  vision_params=None,
@@ -97,12 +91,10 @@ class MIMoStandupEnv(MIMoEnv):
                  actuation_model=SpringDamperModel,
                  **kwargs):
 
-        # Create a duplicate of the scene where MIMo is aged.
-        model_path_growth = adjust_mimo_to_age(model_path, MIMO_AGE)
-
-        super().__init__(model_path=model_path_growth,
+        super().__init__(model_path=model_path,
                          initial_qpos=initial_qpos,
                          frame_skip=frame_skip,
+                         age=age,
                          proprio_params=proprio_params,
                          touch_params=touch_params,
                          vision_params=vision_params,
@@ -145,9 +137,6 @@ class MIMoStandupEnv(MIMoEnv):
         const1, const2 = self.model.eq_data[-4], self.model.eq_data[-5]
         const1[5], const2[5] = finger_pos[2], finger_pos[2]
         self.model.eq_data[-4], self.model.eq_data[-5] = const1, const2
-
-        # Delete the temporary scene files for the growth.
-        delete_growth_scene(model_path_growth)
 
         self.init_crouch_position = self.data.qpos.copy()
         self.init_head_height = self.data.geom("head").xpos[2]

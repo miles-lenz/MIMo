@@ -14,6 +14,7 @@ from gymnasium import spaces, utils
 from gymnasium.envs.mujoco import MujocoEnv
 from gymnasium.envs.mujoco.mujoco_rendering import MujocoRenderer
 
+from mimoGrowth.growth import adjust_mimo_to_age, delete_growth_scene
 from mimoTouch.touch import TrimeshTouch, Touch
 from mimoVision.vision import SimpleVision, Vision
 from mimoVestibular.vestibular import SimpleVestibular, Vestibular
@@ -292,9 +293,10 @@ class MIMoEnv(MujocoEnv, utils.EzPickle):
                  render_mode=None,
                  camera_id=None,
                  camera_name=None,
-                 width= DEFAULT_SIZE,
+                 width=DEFAULT_SIZE,
                  height=DEFAULT_SIZE,
                  default_camera_config=None,
+                 age=None,
                  proprio_params=None,
                  touch_params=None,
                  vision_params=None,
@@ -304,7 +306,7 @@ class MIMoEnv(MujocoEnv, utils.EzPickle):
                  done_active=False):
         utils.EzPickle.__init__(**locals())
 
-        #self.fullpath = os.path.abspath(model_path)
+        # self.fullpath = os.path.abspath(model_path)
         self.frame_skip = frame_skip
 
         self.proprio_params = proprio_params
@@ -334,6 +336,8 @@ class MIMoEnv(MujocoEnv, utils.EzPickle):
 
         self._initial_qpos = initial_qpos
 
+        model_path = adjust_mimo_to_age(age, model_path) if age else model_path
+
         # Load XML and initialize everything
         super().__init__(model_path,
                          frame_skip,
@@ -344,6 +348,9 @@ class MIMoEnv(MujocoEnv, utils.EzPickle):
                          camera_id=camera_id,
                          camera_name=camera_name,
                          default_camera_config=default_camera_config)
+
+        if age:
+            delete_growth_scene(model_path)
 
         self._env_setup()
 

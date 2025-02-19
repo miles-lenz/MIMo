@@ -1,13 +1,12 @@
 from mimoEnv.envs.mimo_env import MIMoEnv, SCENE_DIRECTORY, \
     DEFAULT_PROPRIOCEPTION_PARAMS, DEFAULT_VESTIBULAR_PARAMS
-from mimoGrowth.growth import adjust_mimo_to_age, delete_growth_scene
 from mimoActuation.actuation import SpringDamperModel
 import mujoco
 import numpy as np
 import os
 
-MIMO_AGE = 17.5
 TASK = ["BELLY_TO_BACK", "BACK_TO_BELLY"][0]
+
 SCENE_PATH = os.path.join(SCENE_DIRECTORY, "roll_over.xml")
 
 
@@ -17,6 +16,7 @@ class MIMoRollOverEnv(MIMoEnv):
                  model_path=SCENE_PATH,
                  initial_qpos=None,
                  frame_skip=2,
+                 age=None,
                  proprio_params=DEFAULT_PROPRIOCEPTION_PARAMS,
                  touch_params=None,
                  vision_params=None,
@@ -24,12 +24,10 @@ class MIMoRollOverEnv(MIMoEnv):
                  actuation_model=SpringDamperModel,
                  **kwargs):
 
-        # Let MIMo grow.
-        model_growth = adjust_mimo_to_age(model_path, MIMO_AGE)
-
-        super().__init__(model_path=model_growth,
+        super().__init__(model_path=model_path,
                          initial_qpos=initial_qpos,
                          frame_skip=frame_skip,
+                         age=age,
                          proprio_params=proprio_params,
                          touch_params=touch_params,
                          vision_params=vision_params,
@@ -48,11 +46,7 @@ class MIMoRollOverEnv(MIMoEnv):
         for _ in range(100):
             mujoco.mj_step(self.model, self.data)
 
-        # Store the initial position.
         self.init_position = self.data.qpos.copy()
-
-        # Delete the temporary growth scene.
-        delete_growth_scene(model_growth)
 
     def is_success(self, achieved_goal, desired_goal):
         """..."""
