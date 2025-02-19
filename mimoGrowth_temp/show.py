@@ -30,38 +30,70 @@ def adjust_pos(pos: str, model: MjModel, data: MjData) -> None:
     """
 
     if pos == "stand":
+
         height = sum([
             -model.body("left_upper_leg").pos[2],
             -model.body("left_lower_leg").pos[2],
             -model.body("left_foot").pos[2],
             model.geom("geom:left_foot2").size[2]
         ])
+
         model.body("hip").pos = [0, 0, height]
         mujoco.mj_forward(model, data)
 
-    elif pos in ["prone", "supine"]:
+    elif pos in ["prone", "prone_on_arms", "supine"]:
+
         model.body("hip").pos = [0, 0, 0.2]
-        if pos == "prone":
+
+        if pos in ["prone", "prone_on_arms"]:
             model.body("hip").quat = [0, -0.7071068, 0, 0.7071068]
         else:
             model.body("hip").quat = [0, 0.7071068, 0, 0.7071068]
+
         for _ in range(100):
             mujoco.mj_step(model, data)
 
+        if pos == "prone_on_arms":
+
+            joint_values = [
+                ("robot:hip_bend1", [-0.25]),
+                ("robot:hip_bend2", [-0.25]),
+                ("robot:head_tilt", [-0.9]),
+                ("robot:right_shoulder_horizontal", [1.2]),
+                ("robot:left_shoulder_horizontal", [1.2]),
+                ("robot:right_shoulder_ad_ab", [1.2]),
+                ("robot:left_shoulder_ad_ab", [1.2]),
+                ("robot:right_shoulder_rotation", [-1.3]),
+                ("robot:left_shoulder_rotation", [-1.3]),
+                ("robot:right_elbow", [-1.2]),
+                ("robot:left_elbow", [-1.2]),
+            ]
+
+            for name, val in joint_values:
+                mimo_utils.set_joint_qpos(model, data, name, val)
+
+            for _ in range(30):
+                mujoco.mj_step(model, data)
+
     elif "sit" in pos:
+
         model.body("hip").pos = [
             0,
             0,
             data.geom("lb").xpos[2] + model.geom("lb").size[0]
             - model.geom("lb").pos[2]
         ]
+
         mimo_utils.set_joint_qpos(model, data, "robot:right_hip1", [-1.58])
         mimo_utils.set_joint_qpos(model, data, "robot:left_hip1", [-1.58])
+
         for _ in range(5):
             mujoco.mj_step(model, data)
 
         if "_" in pos:
+
             factor, direction = 2, pos.split("_")[1]
+
             joint_values = {
                 "forward": [
                     ("robot:hip_bend1", [0.1 * factor]),
@@ -82,8 +114,12 @@ def adjust_pos(pos: str, model: MjModel, data: MjData) -> None:
                     ("robot:right_fingers", [-2.5]),
                 ]
             }
+
             for name, val in joint_values[direction]:
                 mimo_utils.set_joint_qpos(model, data, name, val)
+
+    else:
+        raise ValueError(f"Unknown position '{pos}'.")
 
 
 def update_mimo(model: MjModel, data: MjData, growth_params: dict) -> None:
@@ -305,8 +341,8 @@ def strength_test(action: str = None, pos: str = "stand",
     In order to do this, the following steps are performed:
     - Adjust the age of MIMo
     - Bring MIMo into the specified starting position
-    - Perform the given action by activating relevant actuators
-    - Activate physics if necessary
+    - Perform the given action by activating relevant actuators and
+        enabling physics
 
     Arguments:
         - action (str): The action MIMo should perform. Default is none.
@@ -323,11 +359,12 @@ def strength_test(action: str = None, pos: str = "stand",
 
     model = mujoco.MjModel.from_xml_path(growth_model)
     data = mujoco.MjData(model)
+
+    model.body("growth_references").pos = [0, 0, -5]
+
     adjust_pos(pos, model, data)
 
     delete_growth_scene(growth_model)
-
-    model.body("growth_references").pos = [0, 0, -5]
 
     qpos_init = data.qpos.copy()
     qvel_init = data.qvel.copy()
@@ -340,13 +377,9 @@ def strength_test(action: str = None, pos: str = "stand",
         elif keycode == 341:  # strg
             state["reset"] = True
 
-    if active and action:
-        print(
-            "The parameters 'active' and 'action' can't " +
-            "be set at the same time."
-        )
-        return
     if active:
+        if action:
+            print("The 'action' parameter has no effect in an active viewer.")
         with mujoco.viewer.launch(model, data) as viewer:
             while viewer.is_running():
                 pass
@@ -356,13 +389,12 @@ def strength_test(action: str = None, pos: str = "stand",
     with mujoco.viewer.launch_passive(**args) as viewer:
         while viewer.is_running():
 
-            if not action:
+            if not state["run"]:
                 continue
 
             step_start = time.time()
 
-            if "sit" not in pos or state["run"]:
-                mujoco.mj_step(model, data)
+            mujoco.mj_step(model, data)
 
             if state["reset"]:
                 data.qpos[:], data.qvel[:] = qpos_init, qvel_init
@@ -370,7 +402,7 @@ def strength_test(action: str = None, pos: str = "stand",
                 mujoco.mj_forward(model, data)
                 state["reset"], state["run"] = False, 0
 
-            if state["run"] == 1:
+            if state["run"] == 1 and action:
                 if action == "lift_head" and pos in ["prone", "supine"]:
                     data.ctrl[4] = -1 if pos == "prone" else 1  # head_tilt
                 elif action == "lift_chest" and pos == "prone":
@@ -389,11 +421,15 @@ def strength_test(action: str = None, pos: str = "stand",
                         data.ctrl[2] = 1  # hip_lean (to the right)
                     elif sit_dir == "right":
                         data.ctrl[2] = -1  # hip_lean (to the left)
+                elif action == "hold" and pos == "prone_on_arms":
+                    data.ctrl[0] = -1  # hip_bend
+                    data.ctrl[4] = -1  # head_tilt
+                    data.ctrl[12] = 1  # right_shoulder_horizontal
+                    # data.ctrl[15] = 0.2  # right_elbow
+                    data.ctrl[20] = 1  # left_shoulder_horizontal
+                    # data.ctrl[23] = 0.2  # left_elbow
                 else:
-                    print(
-                        "Unknown configuration for 'pos' and 'action'. " +
-                        "Nothing happens."
-                    )
+                    print("Unknown configuration for 'pos' and 'action'.")
                 state["run"] += 1
 
             viewer.sync()
