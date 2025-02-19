@@ -76,8 +76,16 @@ class MIMoStandupEnv(MIMoEnv):
     disabled since :attr:`.done_active` is set to ``False``. The purpose of this is to enable extra information for
     the logging features of stable baselines.
 
+    If the 'age' parameter is set, the following will be changed:
+    - Height of MIMo so that he will touch the floor
+    - Constraints for MIMo
+    - Size and position of crib
+    - sample goal and achieved goal will be relative values
+        for a better comparison
+
     Attributes:
         init_crouch_position (numpy.ndarray): The initial position.
+        init_head_height (float): The initial head height.
     """
     def __init__(self,
                  model_path=STANDUP_XML,
@@ -105,41 +113,41 @@ class MIMoStandupEnv(MIMoEnv):
                          default_camera_config={"azimuth": 180},
                          **kwargs)
 
-        # Update the model.
-        mujoco.mj_forward(self.model, self.data)
+        if age:
 
-        # Calculate the distance to the floor and adjust the height of MIMo.
-        distance_to_floor = (
-            self.data.body("left_foot").xpos[2]
-            - self.model.geom("geom:left_foot1").size[1]
-        )
-        qpos = SITTING_POSITION["mimo_location"]
-        qpos[2] -= distance_to_floor
-        mimo_utils.set_joint_qpos(self.model, self.data, "mimo_location", qpos)
+            mujoco.mj_forward(self.model, self.data)
 
-        # Get some hand/finger sizes and positions.
-        hand_pos = self.data.body("right_hand").xpos
-        hand_size = self.model.geom("geom:right_hand1").size
-        finger_pos = self.data.body("right_fingers").xpos
-        finger_pos2 = self.data.body("left_fingers").xpos
-        finger_size = self.model.geom("geom:right_fingers1").size
+            distance_to_floor = self.data.body("left_foot").xpos[2]
+            distance_to_floor -= self.model.geom("geom:left_foot1").size[1]
 
-        # Change the crib position.
-        pos_x = (finger_pos2[0] * (0.098 / 0.09890521)) - finger_size[1] * 2
-        pos_z = hand_pos[2] * (0.42 / 0.45927906)
-        self.model.body("crib").pos = [pos_x, 0, pos_z]
+            qpos = SITTING_POSITION["mimo_location"]
+            qpos[2] -= distance_to_floor
+            mimo_utils.set_joint_qpos(
+                self.model, self.data, "mimo_location", qpos)
 
-        # Change the crib size.
-        new_size = [hand_size[1] * 2, 0.4, 0]
-        self.model.geom(self.model.body("crib").geomadr).size = new_size
+            hand_pos = self.data.body("right_hand").xpos
+            hand_size = self.model.geom("geom:right_hand1").size
+            finger_pos = self.data.body("right_fingers").xpos
+            finger_pos2 = self.data.body("left_fingers").xpos
+            finger_size = self.model.geom("geom:right_fingers1").size
 
-        # Update the constraints for the fingers.
-        const1, const2 = self.model.eq_data[-4], self.model.eq_data[-5]
-        const1[5], const2[5] = finger_pos[2], finger_pos[2]
-        self.model.eq_data[-4], self.model.eq_data[-5] = const1, const2
+            pos_x = (finger_pos2[0] * (0.098 / 0.09890521))
+            pos_x -= finger_size[1] * 2
+            pos_z = hand_pos[2] * (0.42 / 0.45927906)
+            self.model.body("crib").pos = [pos_x, 0, pos_z]
+
+            new_size = [hand_size[1] * 2, 0.4, 0]
+            self.model.geom(self.model.body("crib").geomadr).size = new_size
+
+            const1, const2 = self.model.eq_data[-4], self.model.eq_data[-5]
+            const1[5], const2[5] = finger_pos[2], finger_pos[2]
+            self.model.eq_data[-4], self.model.eq_data[-5] = const1, const2
+
+            self.init_head_height = self.data.geom("head").xpos[2]
+
+            mujoco.mj_forward(self.model, self.data)
 
         self.init_crouch_position = self.data.qpos.copy()
-        self.init_head_height = self.data.geom("head").xpos[2]
 
     def compute_reward(self, achieved_goal, desired_goal, info):
         """ Computes the reward.
@@ -224,36 +232,30 @@ class MIMoStandupEnv(MIMoEnv):
 
         We use a fixed goal height of 0.5.
 
+        If the 'age' parameter is set,  use a goal height consisting
+        of the crib height plus the radius of MIMos head.
+
         Returns:
             float: 0.5
         """
-        # return 0.5
-
-        # === CHANGES BY MILES ===
-
-        # The goal is for MIMo to get his head higher than the crib.
-        head_radius = self.model.geom("head").size[0]
-        crib_height = self.model.body("crib").pos[2]
-
-        return head_radius + crib_height + 0.02
-
-        # ========================
+        if not self.age:
+            return 0.5
+        else:
+            head_radius = self.model.geom("head").size[0]
+            crib_height = self.model.body("crib").pos[2]
+            return head_radius + crib_height
 
     def get_achieved_goal(self):
         """ Get the height of MIMos head.
 
+        If the 'age' parameter is set, use the relative change
+        in head height compared to the initial head height.
+
         Returns:
             float: The height of MIMos head.
         """
-        # return self.data.body('head').xpos[2]
-
-        # === CHANGES BY MILES ===
-
-        # Use the relative change in head height compared to the
-        # initial head height.
-        diff = self.data.body('head').xpos[2] - self.init_head_height
-        reward = diff / self.init_head_height
-
-        return reward
-    
-        # ========================
+        if not self.age:
+            return self.data.body('head').xpos[2]
+        else:
+            diff = self.data.body('head').xpos[2] - self.init_head_height
+            return diff / self.init_head_height

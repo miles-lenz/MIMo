@@ -238,6 +238,8 @@ class MIMoEnv(MujocoEnv, utils.EzPickle):
         camera_name (str): The camera, by name, which will be used for rendering.
         width (int): The width of the rendered image.
         height (int): The height of the rendered image.
+        age (float|None): The age of MIMo. Can be between 0 and 24 months. If ``None`` the original model will be used
+            with no changes.
         proprio_params (Dict|None): The configuration dictionary for the proprioceptive system. If ``None`` the module
             is disabled. Default ``None``.
         touch_params (Dict|None): The configuration dictionary for the touch system. If ``None`` the module is disabled.
@@ -262,6 +264,7 @@ class MIMoEnv(MujocoEnv, utils.EzPickle):
         init_qvel (np.ndarray): The initial velocity vectors for the whole scene. Can be used with :meth:`.set_state`
             to return the simulation to its initial state.
         frame_skip: The number of simulation substeps for each environment step.
+        age (float|None): The age of MIMo.
         goal (object): The desired goal.
         action_space (gym.spaces.Space): The action space. See Gym documentation for more.
         observation_space (gym.spaces.Space): The observation space. See Gym documentation for more.
@@ -308,6 +311,8 @@ class MIMoEnv(MujocoEnv, utils.EzPickle):
 
         # self.fullpath = os.path.abspath(model_path)
         self.frame_skip = frame_skip
+
+        self.age = age
 
         self.proprio_params = proprio_params
         self.touch_params = touch_params
