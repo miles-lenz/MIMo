@@ -5,6 +5,7 @@ from mimoGrowth.constants import AGE_GROUPS
 from mimoGrowth.growth import adjust_mimo_to_age, delete_growth_scene
 from mimoGrowth.utils import load_measurements, store_base_values, \
     approximate_growth_functions
+from mimoGrowth.utils import growth_function as func
 import argparse
 from collections import defaultdict
 import os
@@ -24,16 +25,15 @@ def growth_function(body_part: str = "head_circumference") -> None:
             Default is 'head_circumference'.
     """
 
+    age_samples = np.linspace(0, 24, 100)
+
     measurements = load_measurements()
-
-    age_samples = np.linspace(min(AGE_GROUPS), max(AGE_GROUPS), 100)
-
-    func = approximate_growth_functions(measurements)[body_part]
-    pred = np.polyval(func, age_samples)
+    params = approximate_growth_functions(measurements)[body_part]
+    pred = func(age_samples, *params)
 
     plt.errorbar(
-        AGE_GROUPS[1:-1], measurements[body_part]["mean"],
-        measurements[body_part]["std"],
+        AGE_GROUPS[:-1], measurements[body_part]["mean"][:-1],
+        measurements[body_part]["std"][:-1],
         fmt="o", color="black", capsize=5,
         label="Original Data"
     )
@@ -51,7 +51,7 @@ def multiple_functions() -> None:
     """..."""
 
     body_parts_to_plot = [
-        # "head_circumference",
+        "head_circumference",
         "mid_thigh_circumference",
         "foot_breadth",
         "knee_sole_length",
@@ -61,16 +61,16 @@ def multiple_functions() -> None:
     ]
 
     measurements = load_measurements()
-    age_samples = np.linspace(min(AGE_GROUPS), max(AGE_GROUPS), 100)
+    age_samples = np.linspace(0, 24, 100)
 
     colors = [plt.get_cmap("tab10")(i) for i in range(10)]
 
     for i, body_part in enumerate(body_parts_to_plot):
-        func = approximate_growth_functions(measurements)[body_part]
-        pred = np.polyval(func, age_samples)
+        params = approximate_growth_functions(measurements)[body_part]
+        pred = func(age_samples, *params)
         plt.errorbar(
-            AGE_GROUPS[1:-1], measurements[body_part]["mean"],
-            measurements[body_part]["std"],
+            AGE_GROUPS[:-1], measurements[body_part]["mean"][:-1],
+            measurements[body_part]["std"][:-1],
             fmt="o", color=colors[i], capsize=5,
             label=body_part.replace("_", " ").title()
         )
@@ -132,7 +132,7 @@ def comparison() -> None:
         key = dirpath.split("/")[-1]
         data["WHO"][key] = df
 
-    age_range = list(range(0, 25))
+    age_range = np.linspace(0, 24, 50)
 
     for i, age in enumerate(age_range):
 
@@ -169,18 +169,18 @@ def comparison() -> None:
             label="MIMo"
         )
         plt.errorbar(
-            age_range, data["WHO"][key]["M"].tolist(),
+            age_range[::2], data["WHO"][key]["M"].tolist(),
             data["WHO"][key]["M"] * data["WHO"][key]["S"],
             color="black", linestyle="--", capsize=3,
             label="Real Infant"
         )
         plt.fill_between(
-            age_range, data["WHO"][key]["5th"], data["WHO"][key]["95th"],
+            age_range[::2], data["WHO"][key]["5th"], data["WHO"][key]["95th"],
             color='gray', alpha=0.3,
             label="5th - 95th Percentile"
         )
         plt.fill_between(
-            age_range, data["WHO"][key]["10th"], data["WHO"][key]["90th"],
+            age_range[::2], data["WHO"][key]["10th"], data["WHO"][key]["90th"],
             color='gray', alpha=0.5,
             label="10th - 90th Percentile"
         )
@@ -223,5 +223,15 @@ if __name__ == "__main__":
         choices=func_map.keys(),
         help="The function to call."
     )
+    parser.add_argument(
+        "kwargs",
+        nargs=argparse.REMAINDER,
+        help="Additional keyword arguments."
+    )
 
-    func_map[parser.parse_args().function]()
+    kwargs = {}
+    for param in parser.parse_args().kwargs:
+        key, value = param.split("=")
+        kwargs[key] = value
+
+    func_map[parser.parse_args().function](**kwargs)

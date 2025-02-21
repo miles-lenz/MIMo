@@ -1,11 +1,39 @@
 """ This module store utility and helper functions. """
 
-from mimoGrowth.constants import AGE_GROUPS, RATIOS_MIMO_GEOMS
+from mimoGrowth.constants import AGE_GROUPS, RATIOS_MIMO_GEOMS, \
+    CHILDREN_MEASUREMENTS
 import re
 import os
 import numpy as np
 import pandas as pd
+from scipy.optimize import curve_fit
 import xml.etree.ElementTree as ET
+
+
+def growth_function(x, a, b, c) -> float:
+    """
+    This function represents the standard form of the growth functions.
+
+    By default, this is a logarithmic function. If you want to explore
+    different types of approximations, simply modify the return statement
+    to use other mathematical expressions (e.g., a quadratic function).
+
+    Example: Use `a * x ** 2 + b * x + c` if you want to try a
+    quadratic function.
+
+    Notice that the bounds in `approximate_growth_functions` should be
+    changed accordingly.
+
+    Arguments:
+        x (float): The input value for which the function is evaluated.
+            This represents the age of MIMo and will be between 0 and 24.
+        a, b, c (float): Parameters, that will modify the function.
+
+    Returns:
+        float: The result of the function evaluation at the given `x`.
+    """
+
+    return a * np.log(x + b) + c
 
 
 def load_measurements() -> dict:
@@ -28,13 +56,11 @@ def load_measurements() -> dict:
     for file_name in next(os.walk(path_meas))[2]:
 
         df = pd.read_csv(path_meas + file_name)
-        last_row = df.index.stop - 1
+        children_meas = CHILDREN_MEASUREMENTS[file_name[:-4]]
 
         measurements[file_name[:-4]] = {
-            "mean": df.MEAN.to_list(),
-            "std": df["S.D."].tolist(),
-            "0": [df["MEAN"][0] - df["S.D."][0]],
-            "24": [df["MEAN"][last_row] + df["S.D."][last_row]],
+            "mean": df.MEAN.to_list() + [children_meas[0]],
+            "std": df["S.D."].tolist() + [children_meas[1]],
         }
 
     return measurements
@@ -55,9 +81,14 @@ def approximate_growth_functions(measurements: dict):
     functions = {}
     for body_part, meas in measurements.items():
         x = AGE_GROUPS
-        y = meas["0"] + meas["mean"] + meas["24"]
-        functions[body_part] = np.polyfit(x, y, deg=3)
-
+        y = meas["mean"]
+        params = curve_fit(
+            growth_function, x, y,
+            maxfev=10000,
+            # Use bounds for the log function to avoid the issue of log(0).
+            bounds=[(-np.inf, 0.1, -np.inf), (np.inf, np.inf, np.inf)]
+        )[0]
+        functions[body_part] = params
     return functions
 
 
@@ -78,9 +109,8 @@ def estimate_sizes(measurements: dict, age: float) -> dict:
     functions = approximate_growth_functions(measurements)
 
     sizes = {}
-    for body_part, func in functions.items():
-        sizes[body_part] = np.polyval(func, age)
-
+    for body_part, params in functions.items():
+        sizes[body_part] = growth_function(age, *params)
     return sizes
 
 
