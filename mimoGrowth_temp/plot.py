@@ -48,7 +48,10 @@ def growth_function(body_part: str = "head_circumference") -> None:
 
 
 def multiple_functions() -> None:
-    """..."""
+    """
+    This function plots multiple growth functions to compare them.
+    Just modify the below variable to select different functions.
+    """
 
     body_parts_to_plot = [
         "head_circumference",

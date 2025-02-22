@@ -141,7 +141,7 @@ def calc_geom_sizes(approx_sizes: dict, extras: dict) -> dict:
 
     geom_sizes["torso"] = []
     for i in range(5):
-        size, ratio = approx_sizes["torso"][i], ratios["torso"][i]
+        size, ratio = approx_sizes["torso"][i], ratios["torso_size"][i]
         vec = [size * ratio, size * (1 - ratio)]
         geom_sizes["torso"].append(vec)
 
@@ -153,7 +153,8 @@ def calc_geom_sizes(approx_sizes: dict, extras: dict) -> dict:
     return geom_sizes
 
 
-def calc_geom_positions(approx_sizes: dict, extras: dict) -> dict:
+def calc_geom_positions(
+        approx_sizes: dict, geom_sizes: dict, extras: dict) -> dict:
     """
     This function will calculate the position of every geom based on the
     estimated sizes and some extra values.
@@ -161,6 +162,7 @@ def calc_geom_positions(approx_sizes: dict, extras: dict) -> dict:
     Arguments:
         approx_sizes (dict): The estimated sizes for all body
             parts at the given age.
+        geom_sizes (dict): The size of every geom.
         extras (dict): Additional values that could not be obtained
             from the website.
 
@@ -171,6 +173,7 @@ def calc_geom_positions(approx_sizes: dict, extras: dict) -> dict:
     h_hand, len_hand, len_fingers = extras["hand"]
     _, len_foot, len_toes = extras["foot"]
     len_lower_leg1, len_lower_leg2 = extras["lower_leg"]
+    torso_size = geom_sizes["torso"]
 
     positions = {
         "head": [
@@ -186,11 +189,11 @@ def calc_geom_positions(approx_sizes: dict, extras: dict) -> dict:
             [0, 0, len_fingers * 2]  # fingers2
         ],
         "torso": [
-            [-0.002, 0, 0.005],  # lb
-            [0.005, 0, -0.008],  # cb
-            [0.007, 0, -0.032],  # ub1
-            [0.004, 0, 0.03],  # ub2
-            [0, 0, 0.09],  # ub3
+            [-0.002, 0, torso_size[0][0] * ratios["torso_pos"][0]],  # lb
+            [0.005, 0, torso_size[1][0] * ratios["torso_pos"][1]],  # cb
+            [0.007, 0, torso_size[2][0] * ratios["torso_pos"][2]],  # ub1
+            [0.004, 0, torso_size[3][0] * ratios["torso_pos"][3]],  # ub2
+            [0, 0, torso_size[4][0] * ratios["torso_pos"][4]],  # ub3
         ],
         "upper_leg": [[
             0,
@@ -263,7 +266,7 @@ def calc_geom_params(approx_sizes: dict, base_values: dict) -> dict:
     extras = calc_extras(approx_sizes)
 
     geom_sizes = calc_geom_sizes(approx_sizes, extras)
-    geom_positions = calc_geom_positions(approx_sizes, extras)
+    geom_positions = calc_geom_positions(approx_sizes, geom_sizes, extras)
 
     params = {}
     for body_part, geom_names in MAPPING_GEOM.items():

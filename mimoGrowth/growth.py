@@ -92,13 +92,15 @@ def calc_growth_params(age: float, path_scene: str) -> dict:
     """
 
     measurements = utils.load_measurements()
-    approx_sizes = utils.estimate_sizes(measurements, age)
+    growth_functions = utils.approximate_growth_functions(measurements)
+
+    approx_sizes = utils.estimate_sizes(growth_functions, age)
     approx_sizes = utils.format_sizes(approx_sizes)
 
     base_values = utils.store_base_values(path_scene)
 
     params_geoms = calc_geom_params(approx_sizes, base_values)
-    params_bodies = calc_body_params(params_geoms)
+    params_bodies = calc_body_params(params_geoms, age)
     params_motors = calc_motor_params(params_geoms, base_values)
 
     params = {

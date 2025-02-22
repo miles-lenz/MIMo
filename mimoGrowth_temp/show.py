@@ -3,6 +3,9 @@
 from mimoGrowth.growth import adjust_mimo_to_age, delete_growth_scene, \
     calc_growth_params
 import mimoEnv.utils as mimo_utils
+import mimoGrowth.utils as utils
+from mimoGrowth.mujoco.geom_handler import calc_geom_params
+from mimoGrowth.mujoco.body_handler import calc_body_params
 import time
 import argparse
 import os
@@ -168,8 +171,23 @@ def growth() -> None:
     model = mujoco.MjModel.from_xml_path(path)
     data = mujoco.MjData(model)
 
+    measurements = utils.load_measurements()
+    functions = utils.approximate_growth_functions(measurements)
+
+    def calc_params(age_months, path_scene):
+
+        approx_sizes = utils.estimate_sizes(functions, age_months)
+        approx_sizes = utils.format_sizes(approx_sizes)
+
+        base_values = utils.store_base_values(path_scene)
+
+        params_geoms = calc_geom_params(approx_sizes, base_values)
+        params_bodies = calc_body_params(params_geoms, age_months)
+
+        return {"geom": params_geoms, "body": params_bodies}
+
     age_months = 0
-    growth_params = calc_growth_params(age_months, path)
+    growth_params = calc_params(age_months, path)
     update_mimo(model, data, growth_params)
     adjust_pos("stand", model, data)
 
@@ -190,7 +208,7 @@ def growth() -> None:
 
             if state["reset"]:
                 age_months = 0
-                growth_params = calc_growth_params(age_months, path)
+                growth_params = calc_params(age_months, path)
                 update_mimo(model, data, growth_params)
                 adjust_pos("stand", model, data)
                 state["reset"], state["paused"] = False, True
@@ -201,7 +219,7 @@ def growth() -> None:
                 continue
 
             age_months = np.round(age_months + 0.05, 2)
-            growth_params = calc_growth_params(age_months, path)
+            growth_params = calc_params(age_months, path)
             update_mimo(model, data, growth_params)
             adjust_pos("stand", model, data)
 
@@ -215,7 +233,7 @@ def multiple_mimos() -> None:
 
     Note that this function is only for aesthetic purposes. It should
     not be used for reinforcement learning since it might affect the
-    original behaviour of MIMo.
+    original behavior of MIMo.
     """
 
     AGES = [0, 12, 24, 18, 6]

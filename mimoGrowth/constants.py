@@ -94,15 +94,15 @@ RATIOS_MIMO_GEOMS = {
 RATIOS_MIMO_BODIES = {
     "head": 0.135 / 0.131,  # model pos / calculated pos
     # eye: model pos / model head circumference
-    "eye": np.array([0.07, 0.0245, 0.067375]) / 0.0735,
+    "eye": np.array([0.07, 0.0245, 0.067375]) / (0.0735),
     "upper_arm": [
         0.105 / 0.112,  # model y-pos / calculated y-pos
         0.093 / 0.09  # model z-pos / calculated z-pos
     ],
     "lower_arm": 0.1076 / 0.1082,  # model z-pos / calculated z-pos
     "hand": 0.087 / 0.097,  # model z-pos / calculated z-pos
-    "lower_body": 0.076 / 0.101,  # model z-pos / calculated z-pos
-    "upper_body": 0.091 / 0.105,  # model z-pos / calculated z-pos
+    "lower_body": 0.076 / 0.053,  # model z-pos / radius cb geom
+    "upper_body": 0.091 / 0.052,  # model z-pos / radius ub1 geom
     "upper_leg": 0.051 / 0.054,  # model y-pos / calculated y-pos
     "lower_leg": 0.135 / 0.133,  # model z-pos / calculated z-pos
     "foot": 0.177 / 0.178,  # model z-pos / calculated z-pos
@@ -118,13 +118,21 @@ RATIOS_DERIVED = {
         # hand1-to-fingers1 length ratio
         0.0208 / (0.0208 + 0.0207),
     ],
-    "torso": [
+    "torso_size": [
         # radius-to-length ratio
         0.048 / (0.048 + 0.043),  # lb
         0.053 / (0.053 + 0.035),  # cb
         0.052 / (0.052 + 0.035),  # ub1
         0.048 / (0.048 + 0.039),  # ub2
         0.041 / (0.041 + 0.047),  # ub3
+    ],
+    "torso_pos": [
+        # z-pos / radius
+        (0.005 / 0.048),  # lb
+        (-0.008 / 0.053),  # cb
+        (-0.032 / 0.052),  # ub1
+        (0.03 / 0.048),  # ub2
+        (0.09 / 0.041),  # ub3
     ],
     "upper_leg": 0.0645 / 0.0625,  # model pos / model size
     "lower_leg": [

@@ -10,13 +10,14 @@ from mimoGrowth.constants import RATIOS_MIMO_BODIES as ratios
 import numpy as np
 
 
-def calc_body_positions(params_geoms: dict) -> dict:
+def calc_body_positions(params_geoms: dict, age: float) -> dict:
     """
     This function will calculate the position of every body based on
     the given geom parameters.
 
     Arguments:
         params_geoms (dict): All relevant geom parameters.
+        age (float): The age of MIMo.
 
     Returns:
         dict: The position of every body.
@@ -35,14 +36,14 @@ def calc_body_positions(params_geoms: dict) -> dict:
     lower_body = [
         0.002,
         0,
-        (g_lb["size"][0] + g_cb["size"][0]) * ratios["lower_body"]
+        g_cb["size"][0] * ratios["lower_body"]
     ]
     upper_body = [
         -0.002,
         0,
-        (g_cb["size"][0] + g_ub1["size"][0]) * ratios["upper_body"]
+        g_ub1["size"][0] * ratios["upper_body"]
     ]
-    eye = ratios["eye"] * g_head["size"][0]
+    eye = ratios["eye"] * g_head["size"][0] - ((1/12000) * age - 0.001)
     head = [0, 0, (g_ub3["pos"][2] + g_ub3["size"][0]) * ratios["head"]]
     upper_arm = [
         -0.005,
@@ -96,19 +97,20 @@ def calc_body_positions(params_geoms: dict) -> dict:
     return positions
 
 
-def calc_body_params(params_geoms: dict) -> dict:
+def calc_body_params(params_geoms: dict, age: float) -> dict:
     """
     This function calculates all relevant body parameters based on the
     geom parameters for the given age.
 
     Arguments:
         params_geoms (dict): All relevant geom parameters.
+        age (float): The age of MIMo.
 
     Returns:
         dict: All relevant body parameters. Can be accessed via body name.
     """
 
-    body_positions = calc_body_positions(params_geoms)
+    body_positions = calc_body_positions(params_geoms, age)
 
     params = {}
     for body_names, pos in body_positions:

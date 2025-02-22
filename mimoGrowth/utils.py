@@ -66,7 +66,7 @@ def load_measurements() -> dict:
     return measurements
 
 
-def approximate_growth_functions(measurements: dict):
+def approximate_growth_functions(measurements: dict) -> dict:
     """
     This function approximates a growth functions for each body part based
     on the measurements.
@@ -78,39 +78,40 @@ def approximate_growth_functions(measurements: dict):
         dict: A growth function for each body part.
     """
 
+    config = {
+        "maxfev": 10000,
+        # Use bounds for the log function to avoid the issue of log(0).
+        "bounds": [(-np.inf, 0.1, -np.inf), (np.inf, np.inf, np.inf)]
+    }
+
     functions = {}
     for body_part, meas in measurements.items():
-        x = AGE_GROUPS
-        y = meas["mean"]
-        params = curve_fit(
-            growth_function, x, y,
-            maxfev=10000,
-            # Use bounds for the log function to avoid the issue of log(0).
-            bounds=[(-np.inf, 0.1, -np.inf), (np.inf, np.inf, np.inf)]
-        )[0]
+
+        x, y = AGE_GROUPS, meas["mean"]
+        params = curve_fit(growth_function, x, y, **config)[0]
+
         functions[body_part] = params
+
     return functions
 
 
-def estimate_sizes(measurements: dict, age: float) -> dict:
+def estimate_sizes(functions: dict, age: float) -> dict:
     """
-    This function uses the measurements from the website to approximate a
-    growth function for each body part. These functions are then used to
-    estimate the size of all body parts at the given age.
+    This function uses the approximated functions and the given age
+    to estimate sizes for each body part.
 
     Arguments:
-        measurements (dict): The measurements for all body parts.
+        functions (dict): The growth functions for all body parts.
         age (float): The age of MIMo.
 
     Returns:
         dict: The predicted size for every body part at the given age.
     """
 
-    functions = approximate_growth_functions(measurements)
-
     sizes = {}
     for body_part, params in functions.items():
         sizes[body_part] = growth_function(age, *params)
+
     return sizes
 
 
