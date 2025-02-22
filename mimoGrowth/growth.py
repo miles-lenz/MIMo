@@ -40,11 +40,12 @@ from mimoGrowth.mujoco.body_handler import calc_body_params
 from mimoGrowth.mujoco.motor_handler import calc_motor_params
 import mimoGrowth.utils as utils
 import os
+import datetime
 import xml.etree.ElementTree as ET
 import numpy as np
 
 
-def adjust_mimo_to_age(age: float, path_scene: str) -> str:
+def adjust_mimo_to_age(age: float, path_scene: str, log: bool = True) -> str:
     """
     This function creates a temporary duplicate of the provided scene
     where the growth parameters of MIMo are adjusted to the given age.
@@ -52,6 +53,7 @@ def adjust_mimo_to_age(age: float, path_scene: str) -> str:
     Arguments:
         age (float): The age of MIMo. Possible values are between 0 and 24.
         path_scene (str): The path to the MuJoCo scene.
+        log (bool): If log files should be created.
 
     Returns:
         str: The path to the growth scene. Use this path to load the model.
@@ -71,6 +73,16 @@ def adjust_mimo_to_age(age: float, path_scene: str) -> str:
     params = calc_growth_params(age, path_scene)
 
     path_growth_scene = create_growth_scene(params, path_scene)
+
+    if log:
+
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        path_log = os.path.join(script_dir, "log.txt")
+
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        message = f"Age of MIMo: {age:.1f} | Scene Path: {path_scene}"
+
+        open(path_log, "a").write(f"[{timestamp}] {message}\n")
 
     return path_growth_scene
 

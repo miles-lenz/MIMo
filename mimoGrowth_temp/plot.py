@@ -141,7 +141,8 @@ def comparison() -> None:
 
         print(f"{(i / len(age_range) * 100):.2f}%", end="\r")
 
-        growth_scene = adjust_mimo_to_age(age, "mimoEnv/assets/growth.xml")
+        growth_scene = adjust_mimo_to_age(
+            age, "mimoEnv/assets/growth.xml", False)
 
         mj_model = mujoco.MjModel.from_xml_path(growth_scene)
         mj_data = mujoco.MjData(mj_model)

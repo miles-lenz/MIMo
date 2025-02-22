@@ -373,7 +373,7 @@ def strength_test(action: str = None, pos: str = "stand",
 
     age, active = float(age), eval(active)
 
-    growth_model = adjust_mimo_to_age(age, "mimoEnv/assets/growth.xml")
+    growth_model = adjust_mimo_to_age(age, "mimoEnv/assets/growth.xml", False)
 
     model = mujoco.MjModel.from_xml_path(growth_model)
     data = mujoco.MjData(model)
