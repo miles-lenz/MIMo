@@ -91,7 +91,7 @@ class MIMoStandupEnv(MIMoEnv):
                  model_path=STANDUP_XML,
                  initial_qpos=SITTING_POSITION,
                  frame_skip=2,
-                 age=2,
+                 age=None,
                  proprio_params=DEFAULT_PROPRIOCEPTION_PARAMS,
                  touch_params=None,
                  vision_params=None,
