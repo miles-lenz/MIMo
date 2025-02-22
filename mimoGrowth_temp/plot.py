@@ -14,6 +14,29 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+# This will save the plots instead of opening the viewer.
+SAVE_PLOTS = False
+SAVE_DIR_PATH = "your/path/here"
+
+
+def save_plot(name: str = "plot") -> None:
+    """
+    This function saves the current plot.
+
+    Arguments:
+        name (str): The name of the saved plot. Default is 'plot'.
+    """
+
+    plt.title("")
+
+    config = {
+        "bbox_inches": "tight",
+        "pad_inches": 0.1,
+    }
+    full_path = os.path.join(SAVE_DIR_PATH, name + ".pdf")
+
+    plt.savefig(full_path, **config)
+
 
 def growth_function(body_part: str = "head_circumference") -> None:
     """
@@ -44,7 +67,10 @@ def growth_function(body_part: str = "head_circumference") -> None:
     plt.ylabel("Size (Centimeter)")
     plt.legend()
     plt.grid(True, alpha=0.5)
-    plt.show()
+    if SAVE_PLOTS:
+        save_plot(f"growth_function_{body_part}")
+    else:
+        plt.show()
 
 
 def multiple_functions() -> None:
@@ -84,7 +110,10 @@ def multiple_functions() -> None:
     plt.ylabel("Size (Centimeter)")
     plt.legend()
     plt.grid(True, alpha=0.5)
-    plt.show()
+    if SAVE_PLOTS:
+        save_plot("multiple_functions")
+    else:
+        plt.show()
 
 
 def density() -> None:
@@ -106,7 +135,10 @@ def density() -> None:
     plt.ylabel("Density (kg/m³)")
     plt.xticks(rotation=90)
     plt.subplots_adjust(bottom=0.2)
-    plt.show()
+    if SAVE_PLOTS:
+        save_plot("density")
+    else:
+        plt.show()
 
 
 def comparison() -> None:
@@ -207,7 +239,10 @@ def comparison() -> None:
         'Comparison of Growth Parameters between MIMo and Real Infant Data',
         fontsize=16, fontweight="bold"
     )
-    plt.show()
+    if SAVE_PLOTS:
+        save_plot("comparison_WHO")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":
