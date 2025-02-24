@@ -230,32 +230,32 @@ class MIMoStandupEnv(MIMoEnv):
     def sample_goal(self):
         """ Returns the goal height.
 
-        We use a fixed goal height of 0.5.
-
-        If the 'age' parameter is set,  use a goal height consisting
-        of the crib height plus the radius of MIMos head.
+        If 'age' is not set, a fixed goal height of 0.5 is used.
+        Otherwise, the goal height is calculated as the relative height
+        of the crib plus the head diameter, normalized by the crib height.
 
         Returns:
-            float: 0.5
+            float: The goal height.
         """
         if not self.age:
             return 0.5
         else:
-            head_radius = self.model.geom("head").size[0]
+            head_diam = self.model.geom("head").size[0] * 2
             crib_height = self.model.body("crib").pos[2]
-            return head_radius + crib_height
+            return (crib_height + head_diam) / crib_height
 
     def get_achieved_goal(self):
         """ Get the height of MIMos head.
 
-        If the 'age' parameter is set, use the relative change
-        in head height compared to the initial head height.
+        If 'age' is not set, return the absolute height.
+        Otherwise, the head height relative to the crib height is used.
 
         Returns:
-            float: The height of MIMos head.
+            float: The absolute or relative height of MIMos head.
         """
         if not self.age:
             return self.data.body('head').xpos[2]
         else:
-            diff = self.data.body('head').xpos[2] - self.init_head_height
-            return diff / self.init_head_height
+            head_height = self.data.body("head").xpos[2]
+            crib_height = self.model.body("crib").pos[2]
+            return head_height / crib_height
