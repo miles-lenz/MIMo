@@ -341,7 +341,7 @@ class MIMoEnv(MujocoEnv, utils.EzPickle):
 
         self._initial_qpos = initial_qpos
 
-        model_path = adjust_mimo_to_age(age, model_path) if age else model_path
+        model_path = adjust_mimo_to_age(age, model_path) if age is not None else model_path
 
         # Load XML and initialize everything
         super().__init__(model_path,
@@ -354,7 +354,7 @@ class MIMoEnv(MujocoEnv, utils.EzPickle):
                          camera_name=camera_name,
                          default_camera_config=default_camera_config)
 
-        if age:
+        if age is not None:
             delete_growth_scene(model_path)
 
         self._env_setup()

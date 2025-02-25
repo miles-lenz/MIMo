@@ -113,7 +113,7 @@ class MIMoStandupEnv(MIMoEnv):
                          default_camera_config={"azimuth": 180},
                          **kwargs)
 
-        if age:
+        if self.age is not None:
 
             mujoco.mj_forward(self.model, self.data)
 
