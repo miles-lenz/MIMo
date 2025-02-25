@@ -148,10 +148,12 @@ class MIMoRollOverEnv(MIMoEnv):
         """
 
         self.set_state(self.init_qpos, self.init_qvel)
-        qpos = self.init_crouch_position.copy()
+        qpos = self.init_position.copy()
 
         # Set initial positions stochastically.
-        random = self.np_random.uniform(low=-0.01, high=0.01, size=len(qpos[7:]))
+        random = self.np_random.uniform(
+            low=-0.01, high=0.01, size=len(qpos[7:])
+        )
         qpos[7:] = qpos[7:] + random
 
         # Set initial velocities to zero.
