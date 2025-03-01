@@ -99,6 +99,8 @@ class MIMoStandupEnv(MIMoEnv):
                  actuation_model=SpringDamperModel,
                  **kwargs):
 
+        initial_qpos = None if age is not None else initial_qpos
+
         super().__init__(model_path=model_path,
                          initial_qpos=initial_qpos,
                          frame_skip=frame_skip,
@@ -120,32 +122,73 @@ class MIMoStandupEnv(MIMoEnv):
             distance_to_floor = self.data.body("left_foot").xpos[2]
             distance_to_floor -= self.model.geom("geom:left_foot1").size[1]
 
-            qpos = SITTING_POSITION["mimo_location"]
+            qpos = self.data.joint("mimo_location").qpos
             qpos[2] -= distance_to_floor
-            mimo_utils.set_joint_qpos(
-                self.model, self.data, "mimo_location", qpos)
+
+            joint_values = [
+                ("mimo_location", qpos),
+                ("robot:right_shoulder_horizontal", [0.0845]),
+                ("robot:right_shoulder_ad_ab", [0.0485]),
+                ("robot:right_shoulder_rotation", [0.387]),
+                ("robot:right_elbow", [-1.24]),
+                ("robot:right_hand1", [1.29]),
+                ("robot:right_hand2", [0.274]),
+                ("robot:right_hand3", [-0.15]),
+                ("robot:right_fingers", [-1.5]),
+            ]
+
+            # The goal height is essentially MIMo's shoulder height
+            # if he stand perfectly upright. Later on, his absolute head
+            # height will be used relative to this goal height.
+            self.goal_height = self.data.body("head").xpos[2]
+            self.goal_height -= self.model.geom("head").size[0]
+
+            # Bring MIMo in a starting position where he stand on his feet and
+            # grabs the crib with his hands.
+            for name, qpos in joint_values:
+                mimo_utils.set_joint_qpos(self.model, self.data, name, qpos)
+                if "right" in name:
+                    name = name.replace("right", "left")
+                    mimo_utils.set_joint_qpos(
+                        self.model, self.data, name, qpos)
+
+            mujoco.mj_forward(self.model, self.data)
 
             hand_pos = self.data.body("right_hand").xpos
             hand_size = self.model.geom("geom:right_hand1").size
-            finger_pos = self.data.body("right_fingers").xpos
-            finger_pos2 = self.data.body("left_fingers").xpos
+            right_finger_pos = self.data.body("right_fingers").xpos
+            left_finger_pos = self.data.body("left_fingers").xpos
             finger_size = self.model.geom("geom:right_fingers1").size
 
-            pos_x = (finger_pos2[0] * (0.098 / 0.09890521))
+            # Adjust crib position.
+            pos_x = (left_finger_pos[0] * (0.098 / 0.09890521))
             pos_x -= finger_size[1] * 2
             pos_z = hand_pos[2] * (0.42 / 0.45927906)
             self.model.body("crib").pos = [pos_x, 0, pos_z]
 
+            # Adjust crib size.
             new_size = [hand_size[1] * 2, 0.4, 0]
             self.model.geom(self.model.body("crib").geomadr).size = new_size
 
+            # Update constraints.
             const1, const2 = self.model.eq_data[-4], self.model.eq_data[-5]
-            const1[5], const2[5] = finger_pos[2], finger_pos[2]
+            const1[5], const2[5] = right_finger_pos[2], right_finger_pos[2]
             self.model.eq_data[-4], self.model.eq_data[-5] = const1, const2
 
-            self.init_head_height = self.data.geom("head").xpos[2]
-
             mujoco.mj_forward(self.model, self.data)
+
+            self.data.ctrl[0] = 1  # hip_bend
+            self.data.ctrl[19] = -1  # right_hip_flex
+            self.data.ctrl[22] = -1  # right_knee
+            self.data.ctrl[23] = -1  # left_hip_flex
+            self.data.ctrl[26] = -1  # left_knee
+
+            # Let MIMo fall into a sitting/crouching position. Activate some
+            # actuators to help him get there.
+            for _ in range(1000):
+                mujoco.mj_step(self.model, self.data)
+
+            self.data.ctrl = [0] * len(self.data.ctrl)
 
         self.init_crouch_position = self.data.qpos.copy()
 
@@ -231,8 +274,8 @@ class MIMoStandupEnv(MIMoEnv):
         """ Returns the goal height.
 
         If 'age' is not set, a fixed goal height of 0.5 is used.
-        Otherwise, the goal height is calculated as the relative height
-        of the crib plus the head diameter, normalized by the crib height.
+        Otherwise, a fixed goal height of 1 is used. This means that
+        his absolute head height is the same as the goal height.
 
         Returns:
             float: The goal height.
@@ -240,15 +283,13 @@ class MIMoStandupEnv(MIMoEnv):
         if not self.age:
             return 0.5
         else:
-            head_diam = self.model.geom("head").size[0] * 2
-            crib_height = self.model.body("crib").pos[2]
-            return (crib_height + head_diam) / crib_height
+            return 1
 
     def get_achieved_goal(self):
         """ Get the height of MIMos head.
 
         If 'age' is not set, return the absolute height.
-        Otherwise, the head height relative to the crib height is used.
+        Otherwise, return the head height relative to the goal height.
 
         Returns:
             float: The absolute or relative height of MIMos head.
@@ -257,5 +298,4 @@ class MIMoStandupEnv(MIMoEnv):
             return self.data.body('head').xpos[2]
         else:
             head_height = self.data.body("head").xpos[2]
-            crib_height = self.model.body("crib").pos[2]
-            return head_height / crib_height
+            return head_height / self.goal_height
