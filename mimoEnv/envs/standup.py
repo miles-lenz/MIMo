@@ -137,12 +137,6 @@ class MIMoStandupEnv(MIMoEnv):
                 ("robot:right_fingers", [-1.5]),
             ]
 
-            # The goal height is essentially MIMo's shoulder height
-            # if he stand perfectly upright. Later on, his absolute head
-            # height will be used relative to this goal height.
-            self.goal_height = self.data.body("head").xpos[2]
-            self.goal_height -= self.model.geom("head").size[0]
-
             # Bring MIMo in a starting position where he stand on his feet and
             # grabs the crib with his hands.
             for name, qpos in joint_values:
@@ -153,6 +147,11 @@ class MIMoStandupEnv(MIMoEnv):
                         self.model, self.data, name, qpos)
 
             mujoco.mj_forward(self.model, self.data)
+
+            # Set the goal height as MIMo's head height when he is standing
+            # upright. Subtract a small buffer based on his head size.
+            self.goal_height = self.data.geom("head").xpos[2]
+            self.goal_height -= self.model.geom("head").size[0] * 0.1
 
             hand_pos = self.data.body("right_hand").xpos
             hand_size = self.model.geom("geom:right_hand1").size
@@ -280,7 +279,7 @@ class MIMoStandupEnv(MIMoEnv):
         Returns:
             float: The goal height.
         """
-        if not self.age:
+        if self.age is None:
             return 0.5
         else:
             return 1
@@ -294,8 +293,8 @@ class MIMoStandupEnv(MIMoEnv):
         Returns:
             float: The absolute or relative height of MIMos head.
         """
-        if not self.age:
+        if self.age is None:
             return self.data.body('head').xpos[2]
         else:
-            head_height = self.data.body("head").xpos[2]
+            head_height = self.data.geom("head").xpos[2]
             return head_height / self.goal_height
