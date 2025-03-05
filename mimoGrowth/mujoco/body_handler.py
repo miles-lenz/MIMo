@@ -64,7 +64,10 @@ def calc_body_positions(params_geoms: dict, age: float) -> dict:
     fingers = [0, 0, g_hand["size"][2] * 2]
     upper_leg = [
         0.005,
-        (np.sum(g_lb["size"]) - g_u_leg["size"][0]) * ratios["upper_leg"],
+        max(
+            g_u_leg["size"][0],
+            (np.sum(g_lb["size"]) - g_u_leg["size"][0]) * ratios["upper_leg"]
+        ),  # This avoids that the upper legs collide.
         -.007
     ]
     lower_leg = [
