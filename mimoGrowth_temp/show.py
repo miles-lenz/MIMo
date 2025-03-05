@@ -23,7 +23,7 @@ def adjust_pos(pos: str, model: MjModel, data: MjData) -> None:
 
     Possible positions are:
     - stand
-    - prone, supine
+    - prone, prone_on_arms, supine
     - sit, sit_forward, sit_backward, sit_left, sit_right
 
     Arguments:
@@ -41,17 +41,16 @@ def adjust_pos(pos: str, model: MjModel, data: MjData) -> None:
             model.geom("geom:left_foot2").size[2]
         ])
 
-        model.body("hip").pos = [0, 0, height]
-        mujoco.mj_forward(model, data)
+        qpos = [0, 0, height, 0, 0, 0, 0]
+        mimo_utils.set_joint_qpos(model, data, "mimo_location", qpos)
 
     elif pos in ["prone", "prone_on_arms", "supine"]:
 
-        model.body("hip").pos = [0, 0, 0.2]
+        qpos = [0, 0, 0.2, 0, -0.7071068, 0, 0.7071068]
+        if pos == "supine":
+            qpos[4] *= -1
 
-        if pos in ["prone", "prone_on_arms"]:
-            model.body("hip").quat = [0, -0.7071068, 0, 0.7071068]
-        else:
-            model.body("hip").quat = [0, 0.7071068, 0, 0.7071068]
+        mimo_utils.set_joint_qpos(model, data, "mimo_location", qpos)
 
         for _ in range(100):
             mujoco.mj_step(model, data)
@@ -80,13 +79,11 @@ def adjust_pos(pos: str, model: MjModel, data: MjData) -> None:
 
     elif "sit" in pos:
 
-        model.body("hip").pos = [
-            0,
-            0,
-            data.geom("lb").xpos[2] + model.geom("lb").size[0]
-            - model.geom("lb").pos[2]
-        ]
+        height = data.geom("lb").xpos[2] + model.geom("lb").size[0]
+        height -= model.geom("lb").pos[2]
+        qpos = [0, 0, height, 0, 0, 0, 0]
 
+        mimo_utils.set_joint_qpos(model, data, "mimo_location", qpos)
         mimo_utils.set_joint_qpos(model, data, "robot:right_hip1", [-1.58])
         mimo_utils.set_joint_qpos(model, data, "robot:left_hip1", [-1.58])
 
