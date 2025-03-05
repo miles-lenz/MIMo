@@ -350,7 +350,7 @@ def multiple_mimos() -> None:
 
 
 def strength_test(action: str = None, pos: str = "stand",
-                  age: str = "17.5", active: str = "False") -> None:
+                  age: str = "None", active: str = "False") -> None:
     """
     This function will perform a strength test with MIMo.
     In order to do this, the following steps are performed:
@@ -368,9 +368,11 @@ def strength_test(action: str = None, pos: str = "stand",
             Default is false.
     """
 
-    age, active = float(age), eval(active)
+    age, active = eval(age), eval(active)
 
-    growth_model = adjust_mimo_to_age(age, "mimoEnv/assets/growth.xml", False)
+    growth_model = "mimoEnv/assets/growth.xml"
+    if age is not None:
+        growth_model = adjust_mimo_to_age(age, growth_model, False)
 
     model = mujoco.MjModel.from_xml_path(growth_model)
     data = mujoco.MjData(model)
@@ -379,7 +381,8 @@ def strength_test(action: str = None, pos: str = "stand",
 
     adjust_pos(pos, model, data)
 
-    delete_growth_scene(growth_model)
+    if age is not None:
+        delete_growth_scene(growth_model)
 
     qpos_init = data.qpos.copy()
     qvel_init = data.qvel.copy()
