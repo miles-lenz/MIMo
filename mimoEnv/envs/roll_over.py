@@ -199,7 +199,7 @@ class MIMoRollOverEnv(MIMoEnv):
         angle_norm = (angle - (-90)) / (90 - (-90))
 
         # Invert the angle depending on the starting position.
-        if STARTING_POSITION == "BELLY_TO_BACK":
+        if STARTING_POSITION == "supine":
             angle_norm = 1 - angle_norm
 
         return angle_norm
