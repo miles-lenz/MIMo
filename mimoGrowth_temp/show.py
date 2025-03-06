@@ -258,7 +258,15 @@ def multiple_mimos() -> None:
         data = mujoco.MjData(model)
         growth_params = calc_growth_params(age, PATH_SCENE_OG)
         update_mimo(model, data, growth_params)
-        adjust_pos("stand", model, data)
+
+        height = sum([
+            -model.body("left_upper_leg").pos[2],
+            -model.body("left_lower_leg").pos[2],
+            -model.body("left_foot").pos[2],
+            model.geom("geom:left_foot2").size[2]
+        ])
+        model.body("hip").pos = [0, 0, height]
+        mujoco.mj_forward(model, data)
 
         path_model = f"mimoEnv/assets/mimo/MIMo_model_{i}.xml"
         mujoco.mj_saveLastXML(path_model, model)
