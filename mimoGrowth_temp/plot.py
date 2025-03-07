@@ -72,6 +72,50 @@ def growth_function(
     save_plot() if save else plt.show()
 
 
+def all_growth_functions(save: bool = False):
+    """
+    This function plots all growth function in one plot.
+
+    Arguments:
+        save (bool): If the plot should be saved instead of shown.
+    """
+
+    age_samples = np.linspace(0, 24, 100)
+
+    measurements = load_measurements()
+    functions = approximate_growth_functions(measurements)
+
+    i = 0
+    for body_part in measurements:
+
+        plt.subplot(4, 4, i + 1)
+
+        params = functions[body_part]
+        pred = func(age_samples, *params)
+
+        label = body_part.replace("_", " ").title()
+        plt.plot(age_samples, pred, label=label)
+        plt.errorbar(
+            AGE_GROUPS[:-1], measurements[body_part]["mean"][:-1],
+            measurements[body_part]["std"][:-1],
+            fmt="o", markersize=2,
+        )
+
+        # plt.title(, fontsize=10)
+        plt.xlabel("Age (Months)", fontsize=8)
+        plt.ylabel("Size (Centimeter)", fontsize=8)
+        plt.legend(
+            handlelength=0, handleheight=0, handletextpad=0,
+            fontsize=8, loc='lower right'
+        )
+
+        i += 1
+
+    plt.tight_layout()
+    plt.subplots_adjust(hspace=0.5, wspace=0.3)
+    save_plot() if save else plt.show()
+
+
 def multiple_functions(save: bool = False) -> None:
     """
     This function plots multiple growth functions to compare them.
@@ -279,6 +323,7 @@ if __name__ == "__main__":
 
     func_map = {
         "growth_function": growth_function,
+        "all_growth_functions": all_growth_functions,
         "multiple_functions": multiple_functions,
         "density": density,
         "comparison": comparison,
