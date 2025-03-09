@@ -14,41 +14,29 @@ import mujoco
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy.interpolate import CubicSpline
+from scipy.optimize import curve_fit
 from sklearn.metrics import mean_squared_error, r2_score
 import cv2
 
 
-def save_plot():
-    """
-    This function saves the current plot in the
-    directory of this script.
-    The file will be called 'plot.pdf'.
-    """
-
-    dirname = os.path.dirname(__file__)
-    plt.title("")
-    plt.savefig(os.path.join(dirname, "plot.pdf"))
-
-
-def growth_function(
-        body_part: str = "head_circumference", save: bool = False) -> None:
+def growth_function(measurement: str = "head_circumference") -> None:
     """
     This function plots different growth functions with their
     associated original data points.
 
     Arguments:
-        body_part (str): The body part the growth function belongs to.
+        measurement (str): The body part the growth function belongs to.
             Default is 'head_circumference'.
-        save (bool): If the plot should be saved instead of shown.
     """
 
     age_samples = np.linspace(0, 24, 100)
 
     measurements = load_measurements()
-    params = approximate_growth_functions(measurements)[body_part]
+    params = approximate_growth_functions(measurements)[measurement]
     pred = func(age_samples, *params)
 
-    y_true = measurements[body_part]["mean"]
+    y_true = measurements[measurement]["mean"]
     y_pred = func(AGE_GROUPS, *params)
 
     r2 = r2_score(y_true, y_pred)
@@ -59,25 +47,21 @@ def growth_function(
 
     plt.plot(age_samples, pred, label="MIMo")
     plt.errorbar(
-        AGE_GROUPS[:-1], measurements[body_part]["mean"][:-1],
-        measurements[body_part]["std"][:-1],
+        AGE_GROUPS[:-1], measurements[measurement]["mean"][:-1],
+        measurements[measurement]["std"][:-1],
         fmt="o", label="Original Data"
     )
 
-    plt.title(f"Predicting Growth of {body_part} by Age")
     plt.xlabel("Age (Months)")
     plt.ylabel("Size (Centimeter)")
 
     plt.legend()
-    save_plot() if save else plt.show()
+    plt.show()
 
 
-def all_growth_functions(save: bool = False):
+def all_growth_functions() -> None:
     """
-    This function plots all growth function in one plot.
-
-    Arguments:
-        save (bool): If the plot should be saved instead of shown.
+    This function plots all growth function in a single plot.
     """
 
     age_samples = np.linspace(0, 24, 100)
@@ -101,7 +85,6 @@ def all_growth_functions(save: bool = False):
             fmt="o", markersize=2,
         )
 
-        # plt.title(, fontsize=10)
         plt.xlabel("Age (Months)", fontsize=8)
         plt.ylabel("Size (Centimeter)", fontsize=8)
         plt.legend(
@@ -111,18 +94,50 @@ def all_growth_functions(save: bool = False):
 
         i += 1
 
-    plt.tight_layout()
     plt.subplots_adjust(hspace=0.5, wspace=0.3)
-    save_plot() if save else plt.show()
+    plt.show()
 
 
-def multiple_functions(save: bool = False) -> None:
+def different_function_types(type_: str) -> None:
+    """
+    This function plots a fitted growth function that is based
+    on a different function type e.g. polynomial or splines.
+    """
+
+    def growth_func(x, a, b, c, d):
+        return a * x ** 3 + b * x ** 2 + c * x + d
+
+    age_samples = np.linspace(0, 24, 100)
+
+    measurement = load_measurements()["head_circumference"]
+
+    x, y = AGE_GROUPS, measurement["mean"]
+
+    if type_ == "poly":
+        poly_params = curve_fit(growth_func, x, y)[0]
+        pred = growth_func(age_samples, *poly_params)
+    elif type_ == "spline":
+        spline_func = CubicSpline(x, y)
+        pred = spline_func(age_samples)
+
+    plt.plot(age_samples, pred, label="Fitted Function")
+    plt.errorbar(
+        AGE_GROUPS[:-1], measurement["mean"][:-1],
+        measurement["std"][:-1],
+        fmt="o", label="Original Data"
+    )
+
+    plt.xlabel("Age (Months)")
+    plt.ylabel("Size (Centimeter)")
+
+    plt.legend()
+    plt.show()
+
+
+def multiple_functions() -> None:
     """
     This function plots multiple growth functions to compare them.
     Just modify the below variable to select different functions.
-
-    Arguments:
-        save (bool): If the plot should be saved instead of shown.
     """
 
     body_parts_to_plot = [
@@ -144,23 +159,19 @@ def multiple_functions(save: bool = False) -> None:
 
         plt.plot(age_samples, pred, label=body_part.replace("_", " ").title())
 
-    plt.title("Comparing Growth of Various Body Parts by Age")
     plt.xlabel("Age (Months)")
     plt.ylabel("Size (Centimeter)")
 
     plt.legend()
-    save_plot() if save else plt.show()
+    plt.show()
 
 
-def density(save: bool = False) -> None:
+def density() -> None:
     """
     This functions plots the density of each geom.
 
     Note that identical geoms (e.g left_eye and right_eye) are only
     plotted once since they have the same density.
-
-    Arguments:
-        save (bool): If the plot should be saved instead of shown.
     """
 
     base_values = store_base_values("mimoEnv/assets/growth.xml")
@@ -174,17 +185,17 @@ def density(save: bool = False) -> None:
             densities.append(attributes["density"])
 
     plt.bar(names, densities, zorder=3, edgecolor="k")
-    plt.title("Density of Every Geom")
+
     plt.xlabel("Geom")
     plt.ylabel("Density (kg/m³)")
 
     plt.xticks(rotation=90)
     plt.subplots_adjust(bottom=0.15)
 
-    save_plot() if save else plt.show()
+    plt.show()
 
 
-def comparison(metric: str = "height", save: bool = False) -> None:
+def comparison_who(metric: str = "height") -> None:
     """
     This function will compare a growth parameter of MIMo and
     real infants from WHO growth charts.
@@ -194,8 +205,7 @@ def comparison(metric: str = "height", save: bool = False) -> None:
 
     Arguments:
         metric (str): Selects which data will be compared. Can be one of the
-            following: ['height', 'weight', 'head_circumference']
-        save (bool): If the plot should be saved instead of shown.
+            following: ['height', 'weight', 'bmi', 'head_circumference']
     """
 
     data = {"mimo": defaultdict(list), "WHO": {}}
@@ -209,13 +219,13 @@ def comparison(metric: str = "height", save: bool = False) -> None:
         dfs = []
         for path in filenames:
             full_path = os.path.join(dirpath, path)
-            dfs.append(pd.read_csv(full_path))
+            dfs.append(pd.read_excel(full_path))
         df = sum(dfs) / len(dfs)
 
         key = dirpath.split("/")[-1]
         data["WHO"][key] = df
 
-    age_mimo = np.linspace(0, 24, 50)
+    age_mimo = np.linspace(0, 24, 25)
     age_who = list(range(0, 25))
 
     for i, age in enumerate(age_mimo):
@@ -243,23 +253,28 @@ def comparison(metric: str = "height", save: bool = False) -> None:
         head_circum = mj_model.geom("head").size[0] * 2 * np.pi * 100
         data["mimo"]["head_circumference"].append(head_circum)
 
+        bmi = weight / (((height - 0.7) / 100) ** 2)
+        data["mimo"]["bmi"].append(bmi)
+
         delete_growth_scene(growth_scene)
 
     print("100.0%")
 
     plt.plot(age_mimo, data["mimo"][metric], label="MIMo")
     plt.errorbar(
-        age_who, data["WHO"][metric]["M"].tolist(),
-        data["WHO"][metric]["M"] * data["WHO"][metric]["S"],
+        age_who, data["WHO"][metric]["M"][:25].tolist(),
+        data["WHO"][metric]["M"][:25] * data["WHO"][metric]["S"][:25],
         linestyle="--", label="Mean with Standard Deviation"
     )
     plt.fill_between(
-        age_who, data["WHO"][metric]["5th"], data["WHO"][metric]["95th"],
+        age_who, data["WHO"][metric]["P5"][:25],
+        data["WHO"][metric]["P95"][:25],
         color='gray', alpha=0.3,
         label="5th - 95th Percentile"
     )
     plt.fill_between(
-        age_who, data["WHO"][metric]["10th"], data["WHO"][metric]["90th"],
+        age_who, data["WHO"][metric]["P10"][:25],
+        data["WHO"][metric]["P90"][:25],
         color='gray', alpha=0.4,
         label="10th - 90th Percentile"
     )
@@ -267,22 +282,24 @@ def comparison(metric: str = "height", save: bool = False) -> None:
     y_label = {
         "height": "Height (cm)",
         "weight": "Weight (kg)",
+        "bmi": "Body Mass Index (BMI)",
         "head_circumference": "Head Circumference (cm)"
     }[metric]
 
-    plt.title("Comparing MIMo to Real Infants")
     plt.xlabel("Age (months)")
     plt.ylabel(y_label)
 
     plt.legend()
-    save_plot() if save else plt.show()
+    plt.show()
 
 
-def video_to_image(
-        path: str, count_images: int = 3, overlay: bool = False,
-        alpha: float = 0.5, save: bool = False) -> None:
+def video_to_image(path: str, overlay: bool = False) -> None:
+    """
+    This function ...
+    """
 
-    count_images = int(count_images)
+    count_images = 4
+    alpha = 0.5
 
     cap = cv2.VideoCapture(path)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -306,7 +323,7 @@ def video_to_image(
 
         plt.imshow(base_frame.astype(np.uint8))
         plt.axis("off")
-        save_plot() if save else plt.show()
+        plt.show()
 
     else:
 
@@ -316,7 +333,7 @@ def video_to_image(
             ax.axis("off")
 
         plt.tight_layout()
-        save_plot() if save else plt.show()
+        plt.show()
 
 
 if __name__ == "__main__":
@@ -324,9 +341,10 @@ if __name__ == "__main__":
     func_map = {
         "growth_function": growth_function,
         "all_growth_functions": all_growth_functions,
+        "different_function_types": different_function_types,
         "multiple_functions": multiple_functions,
         "density": density,
-        "comparison": comparison,
+        "comparison_who": comparison_who,
         "video_to_image": video_to_image,
     }
 
