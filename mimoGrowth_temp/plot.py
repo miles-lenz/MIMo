@@ -293,17 +293,37 @@ def comparison_who(metric: str = "height") -> None:
     plt.show()
 
 
-def video_to_image(path: str, overlay: bool = False) -> None:
+def video_to_image(
+        path: str, overlay: bool = False,
+        count_images: str = None, percentages: str = None) -> None:
     """
-    This function ...
+    This function takes a video and returns an image containing
+    specific frames either as a sequence over as an overlay.
+
+    Arguments:
+        path (str): The path to the video.
+        overlay (bool): If the image should be an overlay. Default is false.
+        count_images (str): The amount of images in the sequence.
+        percentages (str): The 'count_images' parameter will select evenly
+            distributed frames. This parameter allows for a more specific
+            selection based on percentages where 0 means the first frame
+            and 100 means the last frame.
     """
 
-    count_images = 4
-    alpha = 0.5
+    percentages = eval(percentages) if percentages else None
+    count_images = int(count_images) if count_images is not None else None
 
     cap = cv2.VideoCapture(path)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    frame_indices = np.linspace(0, total_frames - 1, count_images, dtype=int)
+
+    if percentages:
+        frame_indices = [
+            int(p / 100 * (total_frames - 1)) for p in percentages]
+    elif count_images is not None:
+        frame_indices = np.linspace(
+            0, total_frames - 1, count_images, dtype=int)
+    else:
+        raise ValueError("...")
 
     frames = []
     for idx in frame_indices:
@@ -315,6 +335,8 @@ def video_to_image(path: str, overlay: bool = False) -> None:
     cap.release()
 
     if overlay:
+
+        alpha = 0.5
 
         base_frame = frames[0].astype(float)
         for frame in frames[1:]:
