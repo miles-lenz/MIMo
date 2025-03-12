@@ -434,6 +434,11 @@ def strength_test(action: str = None, pos: str = "stand",
                 elif action == "lift_chest" and pos == "prone":
                     data.ctrl[0] = -1  # hip_bend
                     data.ctrl[4] = -1  # head_tilt
+                elif action == "lift_arms" and pos == "supine":
+                    data.ctrl[12] = 1  # right_shoulder_horizontal
+                    data.ctrl[13] = 1  # right_shoulder_ad_ab
+                    data.ctrl[20] = 1  # left_shoulder_horizontal
+                    data.ctrl[21] = 1  # left_shoulder_ad_ab
                 elif action == "lift_legs" and pos == "supine":
                     data.ctrl[28] = -1  # right_hip_flex
                     data.ctrl[36] = -1  # left_hip_flex
