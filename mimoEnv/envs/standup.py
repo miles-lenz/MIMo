@@ -101,6 +101,8 @@ class MIMoStandupEnv(MIMoEnv):
 
         initial_qpos = None if age is not None else initial_qpos
 
+        self.mimo_height = None
+
         super().__init__(model_path=model_path,
                          initial_qpos=initial_qpos,
                          frame_skip=frame_skip,
@@ -148,10 +150,8 @@ class MIMoStandupEnv(MIMoEnv):
 
             mujoco.mj_forward(self.model, self.data)
 
-            # Set the goal height as MIMo's head height when he is standing
-            # upright. Subtract a small buffer based on his head size.
-            self.goal_height = self.data.geom("head").xpos[2]
-            self.goal_height -= self.model.geom("head").size[0] * 0.1
+            # Store the initial height of MIMo if he stands upright.
+            self.mimo_height = self.data.geom("head").xpos[2]
 
             hand_pos = self.data.body("right_hand").xpos
             hand_size = self.model.geom("geom:right_hand1").size
@@ -273,28 +273,21 @@ class MIMoStandupEnv(MIMoEnv):
         """ Returns the goal height.
 
         If 'age' is not set, a fixed goal height of 0.5 is used.
-        Otherwise, a fixed goal height of 1 is used. This means that
-        his absolute head height is the same as the goal height.
+        Otherwise, the goal is based on the initial height of MIMo.
 
         Returns:
             float: The goal height.
         """
-        if self.age is None:
+
+        if self.age is None or self.mimo_height is None:
             return 0.5
         else:
-            return 1
+            return self.mimo_height * 0.8
 
     def get_achieved_goal(self):
         """ Get the height of MIMos head.
 
-        If 'age' is not set, return the absolute height.
-        Otherwise, return the head height relative to the goal height.
-
         Returns:
-            float: The absolute or relative height of MIMos head.
+            float: The height of MIMos head.
         """
-        if self.age is None:
-            return self.data.body('head').xpos[2]
-        else:
-            head_height = self.data.geom("head").xpos[2]
-            return head_height / self.goal_height
+        return self.data.body('head').xpos[2]
