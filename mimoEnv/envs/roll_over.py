@@ -92,7 +92,7 @@ class MIMoRollOverEnv(MIMoEnv):
         self.model.body("hip").pos = [0, 0, 0.2]
 
         self.model.body("hip").quat = [0, -0.7071068, 0, 0.7071068]
-        if STARTING_POSITION == "prone":
+        if STARTING_POSITION == "supine":
             self.model.body("hip").quat *= np.array([1, -1, 1, 1])
 
         for _ in range(100):
@@ -171,12 +171,12 @@ class MIMoRollOverEnv(MIMoEnv):
     def sample_goal(self):
         """ Returns the goal rotation.
 
-        We use a fixed goal rotation of 0.9.
+        We use a fixed goal rotation of 0.8.
 
         Returns:
-            float: 0.9
+            float: 0.8
         """
-        return 0.9
+        return 0.8
 
     def get_achieved_goal(self):
         """ Get the standardized hip rotation of MIMo.
@@ -199,7 +199,7 @@ class MIMoRollOverEnv(MIMoEnv):
         angle_norm = (angle - (-90)) / (90 - (-90))
 
         # Invert the angle depending on the starting position.
-        if STARTING_POSITION == "supine":
+        if STARTING_POSITION == "prone":
             angle_norm = 1 - angle_norm
 
         return angle_norm
