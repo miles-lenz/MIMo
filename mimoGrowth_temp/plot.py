@@ -17,6 +17,8 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline
 from scipy.optimize import curve_fit
 from sklearn.metrics import mean_squared_error, r2_score
+from tensorboard.backend.event_processing.event_accumulator import \
+    EventAccumulator
 import cv2
 
 
@@ -190,7 +192,7 @@ def density() -> None:
     plt.ylabel("Density (kg/m³)")
 
     plt.xticks(rotation=90)
-    plt.subplots_adjust(bottom=0.15)
+    plt.subplots_adjust(bottom=0.25)
 
     plt.show()
 
@@ -293,6 +295,50 @@ def comparison_who(metric: str = "height") -> None:
     plt.show()
 
 
+def tensorboard(
+        experiment: str, metric: str, ages: str, start: str = "") -> None:
+    """
+    This function...
+
+    Arguments:
+        experiment (str): ...
+    """
+
+    base_path = r"C:\Users\miles\coding\MIMo\mimoEnv\models\tensorboard_logs"
+
+    ages = eval(ages)
+
+    results = defaultdict(list)
+    for age in ages:
+
+        for root, _, _ in os.walk(os.path.join(base_path, experiment)):
+
+            if any([word not in root for word in [start, f"age{age}", "PPO"]]):
+                continue
+
+            event_acc = EventAccumulator(root)
+            event_acc.Reload()
+
+            values = [e.value for e in event_acc.Scalars(metric)]
+            results[age].append(values)
+
+    x = np.array([e.step for e in event_acc.Scalars(metric)]) / 1000000
+    for age in ages:
+
+        y_mean = np.mean(results[age], 0)
+        y_std = np.std(results[age], 0)
+        y_sem = y_std / np.sqrt(len(results[age]))
+
+        plt.plot(x, y_mean, label=f"{age} Month(s)")
+        # plt.fill_between(x, y_mean - y_sem, y_mean + y_sem, alpha=0.25)
+
+    plt.xlabel("Time Steps (Million)")
+    plt.ylabel(metric.replace("rollout/", "").replace("_", " ").title())
+
+    plt.legend()
+    plt.show()
+
+
 def video_to_image(
         path: str, overlay: bool = False,
         count_images: str = None, percentages: str = None) -> None:
@@ -367,6 +413,7 @@ if __name__ == "__main__":
         "multiple_functions": multiple_functions,
         "density": density,
         "comparison_who": comparison_who,
+        "tensorboard": tensorboard,
         "video_to_image": video_to_image,
     }
 
