@@ -240,6 +240,8 @@ class MIMoEnv(MujocoEnv, utils.EzPickle):
         height (int): The height of the rendered image.
         age (float|None): The age of MIMo. Can be between 0 and 24 months. If ``None`` the original model will be used
             with no changes.
+        custom_measurements (dict | None): A dictionary of custom measurements for MIMo.  Keys must match measurement
+            names from the ``mimoGrowth/measurements/`` folder, and values are floats representing measurements in centimeters.
         proprio_params (Dict|None): The configuration dictionary for the proprioceptive system. If ``None`` the module
             is disabled. Default ``None``.
         touch_params (Dict|None): The configuration dictionary for the touch system. If ``None`` the module is disabled.
@@ -300,6 +302,7 @@ class MIMoEnv(MujocoEnv, utils.EzPickle):
                  height=DEFAULT_SIZE,
                  default_camera_config=None,
                  age=None,
+                 custom_measurements=None,
                  proprio_params=None,
                  touch_params=None,
                  vision_params=None,
@@ -341,7 +344,7 @@ class MIMoEnv(MujocoEnv, utils.EzPickle):
 
         self._initial_qpos = initial_qpos
 
-        model_path = adjust_mimo_to_age(age, model_path) if age is not None else model_path
+        model_path = adjust_mimo_to_age(age, model_path, custom_measurements) if age is not None else model_path
 
         # Load XML and initialize everything
         super().__init__(model_path,

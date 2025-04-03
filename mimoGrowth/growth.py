@@ -7,6 +7,11 @@ provided scene where the growth parameters are updated to the given age.
 - Use the returned path to load the model.
 - Delete the temporary scene with the `delete_growth_scene` function.
 
+It is possible to use custom measurements in addition to the specified age.
+Custom measurements should be provided in form of a dict where the keys match
+the measurement names in the `mimoGrowth/measurements/` folder and the values
+are floats in centimeters.
+
 It is assumed that every MuJoCo scene has two <include> elements.
 One that links to the meta file of MIMo and another one that links
 to the actual model file. Is is important the the words *meta* and
@@ -22,9 +27,15 @@ Example Code:
 # Set the age of MIMo and the path to the MuJoCo scene.
 AGE, SCENE = 2, "path/to/the/scene.xml"
 
+# Provide custom measurements.
+custom_measurements = {
+    "head_circumference": 35,
+    "upper_arm_circumference": 20,
+}
+
 # Create a duplicate of your scene that
 # includes MIMo with the specified age.
-growth_scene = adjust_mimo_to_age(scene, age)
+growth_scene = adjust_mimo_to_age(scene, age, custom_measurements)
 
 # Do something with the new scene.
 model = mujoco.MjModel.from_xml_path(growth_scene)
@@ -45,7 +56,9 @@ import xml.etree.ElementTree as ET
 import numpy as np
 
 
-def adjust_mimo_to_age(age: float, path_scene: str, log: bool = True) -> str:
+def adjust_mimo_to_age(
+        age: float, path_scene: str, custom_measurements: dict = None,
+        log: bool = True) -> str:
     """
     This function creates a temporary duplicate of the provided scene
     where the growth parameters of MIMo are adjusted to the given age.
@@ -53,6 +66,9 @@ def adjust_mimo_to_age(age: float, path_scene: str, log: bool = True) -> str:
     Arguments:
         age (float): The age of MIMo. Possible values are between 0 and 24.
         path_scene (str): The path to the MuJoCo scene.
+        custom_measurements (dict): Custom measurements for MIMo. Keys need to
+            match the measurement names in mimoGrowth/measurements/ and values
+            are provided in centimeters.
         log (bool): If log files should be created.
 
     Returns:
@@ -70,7 +86,7 @@ def adjust_mimo_to_age(age: float, path_scene: str, log: bool = True) -> str:
         message = f"The Age'{age}' is invalid. Must be between 0 and 24."
         raise ValueError(message)
 
-    params = calc_growth_params(age, path_scene)
+    params = calc_growth_params(age, path_scene, custom_measurements)
 
     path_growth_scene = create_growth_scene(params, path_scene)
 
@@ -87,7 +103,8 @@ def adjust_mimo_to_age(age: float, path_scene: str, log: bool = True) -> str:
     return path_growth_scene
 
 
-def calc_growth_params(age: float, path_scene: str) -> dict:
+def calc_growth_params(
+        age: float, path_scene: str, custom_measurements: dict) -> dict:
     """
     This function calculates and returns all relevant
     growth parameters. This includes:
@@ -98,6 +115,7 @@ def calc_growth_params(age: float, path_scene: str) -> dict:
     Arguments:
         age (float): The age of MIMo.
         path_scene (str): The path to the MuJoCo scene.
+        custom_measurements (dict): Custom measurements for MIMo.
 
     Returns:
         dict: All relevant growth parameters.
@@ -107,6 +125,10 @@ def calc_growth_params(age: float, path_scene: str) -> dict:
     growth_functions = utils.approximate_growth_functions(measurements)
 
     approx_sizes = utils.estimate_sizes(growth_functions, age)
+
+    if custom_measurements:
+        approx_sizes.update(custom_measurements)
+
     approx_sizes = utils.format_sizes(approx_sizes)
 
     base_values = utils.store_base_values(path_scene)
